@@ -1,0 +1,16 @@
+{
+  "scenario_id": "scenario_A",
+  "vin": "1HGCM82633A004352",
+  "vehicle": "2003 Honda Accord EX 2.4L I4",
+  "description": "Lean misfire under load. Unmetered air enters through a cracked brake-booster vacuum hose; ECU compensates with rising fuel trims until misfires appear.",
+  "ground_truth_eval_only": {
+    "root_cause": "Vacuum leak (cracked brake booster hose)",
+    "discriminators": {
+      "vacuum_leak": "Fuel trims climb strongly with engine load; MAF reads consistently ~10-14% below derived airflow but tracks rpm/load smoothly; O2 leans out under load.",
+      "maf_fault": "MAF reading erratic or implausibly inconsistent with rpm/load, not a smooth proportional offset.",
+      "ignition_fault": "Misfires without lean fuel-trim signature; trims near normal.",
+      "o2_sensor_fault": "O2 voltage flatlined/railed while fuel trims show closed-loop activity."
+    }
+  },
+  "notes": "ground_truth_eval_only is for evaluation scripts only; it is never exposed through any MCP tool."
+}

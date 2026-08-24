@@ -1,0 +1,5 @@
+[
+  { "code": "P0171", "status": "active", "set_at_engine_hours": 4127.3, "description": "System Too Lean (Bank 1)" },
+  { "code": "P0300", "status": "active", "set_at_engine_hours": 4127.35, "description": "Random/Multiple Cylinder Misfire Detected" },
+  { "code": "P0456", "status": "pending", "set_at_engine_hours": 4102.1, "description": "EVAP System Very Small Leak Detected (historical, unrelated)" }
+]

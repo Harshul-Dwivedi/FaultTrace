@@ -1,0 +1,29 @@
+{
+  "smoke_test": {
+    "test_id": "smoke_test",
+    "type": "smoke_machine_intake",
+    "result": "confirmed_leak",
+    "detail": "Visible smoke escaping from brake booster supply hose where it joins the intake manifold. Hose surface shows longitudinal cracking.",
+    "duration_s": 90
+  },
+  "vac_gauge_idle": {
+    "test_id": "vac_gauge_idle",
+    "type": "manifold_vacuum_idle",
+    "result": "below_spec_steady",
+    "measured_kpa": 43,
+    "expected_kpa_range": [57, 67],
+    "detail": "Steady but low manifold vacuum at idle, consistent with a fixed-size unmetered air entry."
+  },
+  "trim_recheck_booster_hose_clamped": {
+    "test_id": "trim_recheck_booster_hose_clamped",
+    "type": "fuel_trim_recheck",
+    "condition": "idle, booster supply hose clamped",
+    "hz": 0.5,
+    "duration_s": 18,
+    "t_note": "seconds since clamp applied",
+    "t": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18],
+    "stft": [5.8, 3.9, 2.4, 1.6, 1.1, 0.8, 0.7, 0.9, 0.6, 0.8],
+    "ltft": [16.2, 16.0, 15.7, 15.5, 15.3, 15.1, 15.0, 14.9, 14.9, 14.8],
+    "detail": "With the leaking hose clamped, short-term fuel trim normalizes to ~+1% within seconds: the leak is isolated to that hose."
+  }
+}

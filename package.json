@@ -1,0 +1,19 @@
+{
+  "name": "faulttrace",
+  "version": "0.1.0",
+  "description": "Autonomous forensic agent for physical systems, running on TrueForge",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "patch-package",
+    "start": "trueforge"
+  },
+  "dependencies": {
+    "@truefoundry/trueforge": "^0.1.4",
+    "patch-package": "^8.0.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=22.13"
+  }
+}
