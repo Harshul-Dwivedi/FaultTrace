@@ -9,11 +9,10 @@
     "start": "trueforge"
   },
   "dependencies": {
-    "@truefoundry/trueforge": "^0.1.4"
-  },
-  "devDependencies": {
+    "@truefoundry/trueforge": "^0.1.4",
     "patch-package": "^8.0.0"
   },
+  "devDependencies": {},
   "engines": {
     "node": ">=22.13"
   }

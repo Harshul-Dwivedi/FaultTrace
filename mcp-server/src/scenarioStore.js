@@ -12,6 +12,7 @@ export class ScenarioStore {
     this.scenariosRoot = scenariosRoot;
     this.vinMap = this.loadJson(join(scenariosRoot, "vins.json"), { vins: {} }).vins;
     this.actionLog = [];
+    this.clearedVins = new Set();
   }
 
   loadJson(filePath, fallback) {
@@ -37,11 +38,17 @@ export class ScenarioStore {
 
   getDtcs(vin) {
     const dir = this.resolveScenario(vin);
+    if (this.clearedVins.has(vin)) {
+      return [];
+    }
     return this.loadJson(join(dir, "dtcs.json"), []);
   }
 
   getFreezeFrame(vin, code) {
     const dir = this.resolveScenario(vin);
+    if (this.clearedVins.has(vin)) {
+      throw new Error(`No freeze frame stored for ${code} on ${vin}: codes were cleared`);
+    }
     const frames = this.loadJson(join(dir, "freeze_frames.json"), {});
     const frame = frames[code];
     if (!frame) {
@@ -60,22 +67,25 @@ export class ScenarioStore {
         `Unknown PID '${pid}'. Available PIDs: ${this.listPids(vin).join(", ")}`
       );
     }
-    let { t, value } = log;
+    const empty = { pid: log.pid, unit: log.unit, hz: log.hz, t: [], value: [] };
+    let startIdx = 0;
+    let endIdx = log.t.length - 1;
     if (Number.isFinite(windowStart)) {
-      const startIdx = t.findIndex((ts) => ts >= windowStart);
-      if (startIdx > 0) {
-        t = t.slice(startIdx);
-        value = value.slice(startIdx);
-      }
+      startIdx = log.t.findIndex((ts) => ts >= windowStart);
+      if (startIdx === -1) return empty;
     }
     if (Number.isFinite(windowEnd)) {
-      const endIdx = t.findLastIndex((ts) => ts <= windowEnd);
-      if (endIdx >= 0 && endIdx < t.length - 1) {
-        t = t.slice(0, endIdx + 1);
-        value = value.slice(0, endIdx + 1);
-      }
+      endIdx = log.t.findLastIndex((ts) => ts <= windowEnd);
+      if (endIdx === -1) return empty;
     }
-    return { pid: log.pid, unit: log.unit, hz: log.hz, t, value };
+    if (startIdx > endIdx) return empty;
+    return {
+      pid: log.pid,
+      unit: log.unit,
+      hz: log.hz,
+      t: log.t.slice(startIdx, endIdx + 1),
+      value: log.value.slice(startIdx, endIdx + 1),
+    };
   }
 
   listPids(vin) {
@@ -102,7 +112,8 @@ export class ScenarioStore {
     throw new Error(`No knowledge base entry for ${safeCode}`);
   }
 
-  requestMeasurement(vin, measurementSpec) {
+  requestMeasurement(vin, measurementSpec, approvedByHuman) {
+    requireApproval(approvedByHuman, "request_measurement", TIERS.DIAGNOSTIC_ACTION);
     const dir = this.resolveScenario(vin);
     const followups = this.loadJson(join(dir, "followup", "measurements.json"), {});
     const key = String(measurementSpec.test_id || measurementSpec.measurement_id || "").trim();
@@ -112,7 +123,7 @@ export class ScenarioStore {
       vin,
       action: "request_measurement",
       spec: measurementSpec,
-      approvedBy: "human",
+      approved_by_human: approvedByHuman === true,
     });
     if (!result) {
       throw new Error(
@@ -122,8 +133,16 @@ export class ScenarioStore {
     return result;
   }
 
-  clearCodes(vin) {
-    this.actionLog.push({ tier: TIERS.IRREVERSIBLE_ACTION, vin, action: "clear_codes" });
+  clearCodes(vin, approvedByHuman) {
+    requireApproval(approvedByHuman, "clear_codes", TIERS.IRREVERSIBLE_ACTION);
+    this.resolveScenario(vin);
+    this.clearedVins.add(vin);
+    this.actionLog.push({
+      tier: TIERS.IRREVERSIBLE_ACTION,
+      vin,
+      action: "clear_codes",
+      approved_by_human: approvedByHuman === true,
+    });
     return {
       status: "cleared",
       vin,
@@ -131,8 +150,16 @@ export class ScenarioStore {
     };
   }
 
-  orderPart(vin, partId) {
-    this.actionLog.push({ tier: TIERS.IRREVERSIBLE_ACTION, vin, action: "order_part", partId });
+  orderPart(vin, partId, approvedByHuman) {
+    requireApproval(approvedByHuman, "order_part", TIERS.IRREVERSIBLE_ACTION);
+    this.resolveScenario(vin);
+    this.actionLog.push({
+      tier: TIERS.IRREVERSIBLE_ACTION,
+      vin,
+      action: "order_part",
+      partId,
+      approved_by_human: approvedByHuman === true,
+    });
     return {
       status: "ordered",
       vin,
@@ -144,6 +171,15 @@ export class ScenarioStore {
 
   getActionLog() {
     return this.actionLog;
+  }
+}
+
+function requireApproval(approvedByHuman, action, tier) {
+  if (approvedByHuman !== true) {
+    throw new Error(
+      `${action} is a ${tier.replace("_", " ")} that requires explicit human approval. ` +
+        "Do not call until the human has approved; then pass approved_by_human=true."
+    );
   }
 }
 

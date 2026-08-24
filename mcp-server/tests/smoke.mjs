@@ -54,6 +54,30 @@ const stft = text(
 strictEqual(stft.t.length, Math.round(10 * 10) + 1, "10 Hz x 10 s window");
 ok(Math.max(...stft.value) > 12, "trims must climb into lean territory under load");
 
+const emptyBeforeStart = text(
+  await client.callTool({
+    name: "get_sensor_log",
+    arguments: { vin: VIN, pid: "stft", windowStart: -5, windowEnd: -1 },
+  })
+);
+strictEqual(emptyBeforeStart.t.length, 0, "window entirely before data returns empty");
+
+const emptyAfterEnd = text(
+  await client.callTool({
+    name: "get_sensor_log",
+    arguments: { vin: VIN, pid: "stft", windowStart: 100, windowEnd: 200 },
+  })
+);
+strictEqual(emptyAfterEnd.t.length, 0, "window entirely after data returns empty");
+
+const emptyInverted = text(
+  await client.callTool({
+    name: "get_sensor_log",
+    arguments: { vin: VIN, pid: "stft", windowStart: 40, windowEnd: 30 },
+  })
+);
+strictEqual(emptyInverted.t.length, 0, "inverted window returns empty");
+
 const history = text(await client.callTool({ name: "get_service_history", arguments: { vin: VIN } }));
 ok(history.length >= 3);
 
@@ -62,17 +86,54 @@ const priorSum = kb.common_causes.reduce((s, c) => s + c.prior, 0);
 ok(Math.abs(priorSum - 1) < 0.01, `priors must sum to ~1, got ${priorSum}`);
 ok(kb.characteristic_signatures.vacuum_leak.length > 20);
 
+const refused = await client.callTool({
+  name: "request_measurement",
+  arguments: { vin: VIN, test_id: TEST_ID, justification: "discriminate leak vs MAF" },
+});
+strictEqual(refused.isError, true, "Tier-2 action without approval flag must be refused");
+
 const measurement = text(
   await client.callTool({
     name: "request_measurement",
-    arguments: { vin: VIN, test_id: TEST_ID, justification: "discriminate vacuum leak vs MAF" },
+    arguments: {
+      vin: VIN,
+      test_id: TEST_ID,
+      justification: "discriminate leak vs MAF",
+      approved_by_human: true,
+    },
   })
 );
 strictEqual(measurement.test_id, TEST_ID);
 ok(measurement.stft.slice(-3).every((v) => v < 2), "post-clamp STFT must normalize");
 
-const unknownVin = await client.callTool({ name: "get_dtcs", arguments: { vin: "UNKNOWN123" } });
-ok(unknownVin.isError === true, "unknown VIN must return a tool error");
+const clearRefused = await client.callTool({
+  name: "clear_codes",
+  arguments: { vin: VIN, justification: "test", approved_by_human: false },
+});
+strictEqual(clearRefused.isError, true, "Tier-3 action with approved=false must be refused");
+
+const stillThere = text(await client.callTool({ name: "get_dtcs", arguments: { vin: VIN } }));
+strictEqual(stillThere.length, 3, "refused clear must not mutate DTC state");
+
+await client.callTool({
+  name: "clear_codes",
+  arguments: { vin: VIN, justification: "repair verified", approved_by_human: true },
+});
+
+const afterClear = text(await client.callTool({ name: "get_dtcs", arguments: { vin: VIN } }));
+strictEqual(afterClear.length, 0, "cleared VIN must report no DTCs");
+
+const frameAfterClear = await client.callTool({
+  name: "get_freeze_frame",
+  arguments: { vin: VIN, code: CODE },
+});
+strictEqual(frameAfterClear.isError, true, "freeze frames must be gone after clearing");
+
+const unknownVinOrder = await client.callTool({
+  name: "order_part",
+  arguments: { vin: "UNKNOWN123", part_id: "x", justification: "test", approved_by_human: true },
+});
+strictEqual(unknownVinOrder.isError, true, "order for unknown VIN must error");
 
 console.log(`smoke test passed: ${tools.tools.length} tools registered, all checks green`);
 process.exit(0);

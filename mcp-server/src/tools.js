@@ -1,6 +1,9 @@
 import { z } from "zod";
 
 const VinSchema = z.string().min(5).describe("Vehicle Identification Number");
+const HumanApprovalSchema = z
+  .boolean()
+  .describe("True only after a human explicitly approved this action in the harness UI");
 
 export function registerTools(server, store) {
   server.registerTool(
@@ -90,15 +93,16 @@ export function registerTools(server, store) {
     {
       title: "Request physical measurement",
       description:
-        "TIER 2 - REQUIRES HUMAN APPROVAL. Sends a technician to perform a physical diagnostic measurement on the vehicle (e.g. smoke_test, vac_gauge_idle, trim_recheck_idle_purge_clamped) and returns the result. Only call after the human approves.",
+        "TIER 2 - REQUIRES HUMAN APPROVAL. Sends a technician to perform a physical diagnostic measurement on the vehicle (e.g. smoke_test, vac_gauge_idle, trim_recheck_booster_hose_clamped) and returns the result. The harness must gate this tool; pass approved_by_human=true only after the human approves. Refuses to run otherwise.",
       inputSchema: {
         vin: VinSchema,
         test_id: z.string().describe("Identifier of the requested measurement"),
         justification: z.string().describe("Why this measurement is needed and what it will discriminate"),
+        approved_by_human: HumanApprovalSchema,
       },
     },
-    async ({ vin, test_id, justification }) =>
-      jsonResult(store.requestMeasurement(vin, { test_id, justification }))
+    async ({ vin, test_id, justification, approved_by_human }) =>
+      jsonResult(store.requestMeasurement(vin, { test_id, justification }, approved_by_human))
   );
 
   server.registerTool(
@@ -106,10 +110,10 @@ export function registerTools(server, store) {
     {
       title: "Clear DTCs",
       description:
-        "TIER 3 - IRREVERSIBLE, REQUIRES EXPLICIT HUMAN APPROVAL. Erases all DTCs and freeze frames, destroying the diagnostic trail. Never call without explicit approval.",
-      inputSchema: { vin: VinSchema, justification: z.string() },
+        "TIER 3 - IRREVERSIBLE, REQUIRES EXPLICIT HUMAN APPROVAL. Erases all DTCs and freeze frames, destroying the diagnostic trail. Subsequent reads return empty for this VIN. Pass approved_by_human=true only after the human approves; refuses to run otherwise.",
+      inputSchema: { vin: VinSchema, justification: z.string(), approved_by_human: HumanApprovalSchema },
     },
-    async ({ vin }) => jsonResult(store.clearCodes(vin))
+    async ({ vin, approved_by_human }) => jsonResult(store.clearCodes(vin, approved_by_human))
   );
 
   server.registerTool(
@@ -117,14 +121,16 @@ export function registerTools(server, store) {
     {
       title: "Order replacement part",
       description:
-        "TIER 3 - IRREVERSIBLE, REQUIRES EXPLICIT HUMAN APPROVAL. Places an order for a replacement part (spends money). Never call without explicit approval.",
+        "TIER 3 - IRREVERSIBLE, REQUIRES EXPLICIT HUMAN APPROVAL. Places an order for a replacement part (spends money). Pass approved_by_human=true only after the human approves; refuses to run otherwise.",
       inputSchema: {
         vin: VinSchema,
         part_id: z.string(),
         justification: z.string(),
+        approved_by_human: HumanApprovalSchema,
       },
     },
-    async ({ vin, part_id }) => jsonResult(store.orderPart(vin, part_id))
+    async ({ vin, part_id, approved_by_human }) =>
+      jsonResult(store.orderPart(vin, part_id, approved_by_human))
   );
 }
 

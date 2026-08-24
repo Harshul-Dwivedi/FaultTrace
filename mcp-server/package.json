@@ -11,11 +11,13 @@
   },
   "scripts": {
     "start": "node src/index.js",
-    "test": "node tests/smoke.mjs",
+    "start:http": "node src/http.js",
+    "test": "node tests/smoke.mjs && node tests/stdio.mjs",
     "generate:data": "node scripts/generate-scenario-A.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "express": "^5.2.1",
     "zod": "^3.24.0"
   }
 }
