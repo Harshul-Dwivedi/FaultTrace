@@ -1,0 +1,18 @@
+{
+  "code": "P0171",
+  "title": "System Too Lean (Bank 1)",
+  "common_causes": [
+    { "cause": "vacuum_leak", "prior": 0.35, "label": "Vacuum leak (intake manifold, hoses, brake booster)" },
+    { "cause": "maf_fault", "prior": 0.25, "label": "MAF sensor under-reporting airflow" },
+    { "cause": "weak_fuel_delivery", "prior": 0.2, "label": "Weak fuel delivery (pump, filter, injectors)" },
+    { "cause": "ignition_fault", "prior": 0.15, "label": "Ignition fault (coils, plugs, wires)" },
+    { "cause": "o2_sensor_fault", "prior": 0.05, "label": "O2 sensor biased lean" }
+  ],
+  "characteristic_signatures": {
+    "vacuum_leak": "Short/long fuel trims rise steadily with engine load and stay high; MAF reads a smooth but consistently LOW offset (~10-15%) versus rpm-derived expected airflow; O2 leans out as load rises.",
+    "maf_fault": "MAF reading erratic, stuck, or wildly inconsistent with rpm/load; fuel trim error scales with the MAF error itself.",
+    "weak_fuel_delivery": "Trims go NEGATIVE at high load (ECU can't add enough fuel under demand) or fuel pressure drops under load; lean at WOT.",
+    "ignition_fault": "Misfires present but fuel trims remain near normal (<±8%); misfire often cylinder-specific rather than random across all cylinders.",
+    "o2_sensor_fault": "O2 voltage flatlined near 0V or railed near 1V with no switching while fuel trims show active closed-loop correction."
+  }
+}

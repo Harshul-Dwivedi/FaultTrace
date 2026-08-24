@@ -1,0 +1,6 @@
+[
+  { "date": "2026-03-14", "odometer_km": 128411, "work": "Oil change + filter", "parts": ["5W-20 synthetic", "oil filter"], "notes": "Air filter inspected, serviceable" },
+  { "date": "2025-09-02", "odometer_km": 119870, "work": "Spark plugs replaced (iridium, all 4)", "parts": ["NGK ILZKR7B11 x4"], "notes": "Old plugs worn at ~100k km interval" },
+  { "date": "2025-04-19", "odometer_km": 112340, "work": "Brake service front pads + rotors", "parts": ["pads", "rotors"], "notes": "Booster hose visually noted as 'aged' by technician, no action" },
+  { "date": "2024-11-08", "odometer_km": 104502, "work": "Timing chain inspection, valve adjustment", "parts": [], "notes": "Compression test: all cylinders 165-172 psi, within spec" }
+]

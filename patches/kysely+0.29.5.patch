@@ -1,0 +1,15 @@
+diff --git a/node_modules/kysely/dist/migration/file-migration-provider.js b/node_modules/kysely/dist/migration/file-migration-provider.js
+index ed94aeb..9c2ac14 100644
+--- a/node_modules/kysely/dist/migration/file-migration-provider.js
++++ b/node_modules/kysely/dist/migration/file-migration-provider.js
+@@ -32,7 +32,9 @@ export class FileMigrationProvider {
+             const filePath = this.#props.path.join(this.#props.migrationFolder, fileName);
+             const migration = this.#props.import
+                 ? await this.#props.import(filePath)
+-                : await import(/* webpackIgnore: true */ filePath);
++                : await import(/* webpackIgnore: true */ /^[a-zA-Z]:[\\/]/.test(filePath)
++                    ? new URL('file:///' + filePath.replace(/\\/g, '/')).href
++                    : filePath);
+             const migrationKey = fileName.substring(0, fileName.lastIndexOf('.'));
+             // Handle esModuleInterop export's `default` prop...
+             if (isMigration(migration?.default)) {
