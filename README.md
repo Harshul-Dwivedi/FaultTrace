@@ -55,6 +55,13 @@ npm test           # smoke + stdio suites
 node tests/http.mjs # HTTP transport suite (server must be running)
 ```
 
+### Sandbox requirement
+
+The agent definition enables the sandbox (`config.sandbox.enabled: true`) because
+hypothesis testing must run as real computed code, not LLM text math. TrueForge's
+catalog uses the **Daytona** provider - set a Daytona API key in Settings → Sandbox
+before creating sessions from this definition.
+
 ## Architecture
 
 See [SPEC.md](SPEC.md) for the full specification.
