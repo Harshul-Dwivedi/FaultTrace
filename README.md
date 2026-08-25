@@ -14,14 +14,53 @@ FaultTrace is an autonomous forensic investigation agent. Given a failure event 
 # 1. Requirements: Node.js >= 22.13
 node -v
 
-# 2. Start the harness
-npx @truefoundry/trueforge
+# 2. Install (applies the Windows kysely migration patch automatically)
+npm install
 
-# 3. Configure your model key
-cp .env.example .env   # fill in values
+# 3. Start the harness
+npm start          # runs @truefoundry/trueforge on http://localhost:8790
 
-# 4. Start the mock vehicle MCP server (coming soon)
+# 4. Configure a model provider in the UI (Settings -> Models):
+#    Gemini, OpenRouter, Mistral, Groq, or any OpenAI-compatible endpoint
+
+# 5. Start the mock vehicle MCP server (HTTP transport)
+cd mcp-server && npm install && npm run start:http
+#    serves http://localhost:9090/mcp - register it as a remote MCP server
+#    named "faulttrace-vehicle" in TrueForge Settings -> Connectors
+
+# 6. Create the agent from agent/faulttrace-investigator.agent.json
 ```
+
+### Windows note
+
+TrueForge v0.1.4 fails to start on Windows because kysely's `FileMigrationProvider`
+passes raw `C:\...` paths to ESM `import()`. `patches/kysely+0.29.5.patch` fixes this
+and is applied automatically via `postinstall` (patch-package). See PR #2 for details.
+
+### Model notes (free tiers)
+
+| Provider | Usable for this project | Catch |
+| --- | --- | --- |
+| OpenRouter (`stealth/ox-alpha`) | Yes - primary today | ~20 RPM / 50 req/day free |
+| Google AI Studio Flash | Yes after daily reset | Free tier quota varies by region |
+| Mistral | Yes, slow mode | Free tier = 4 req/min |
+| Groq | No | 8K tokens/min cap < our prompt size |
+| Gemini Pro preview | No | Free-tier quota is zero |
+
+### Tests
+
+```bash
+cd mcp-server
+npm test           # smoke + stdio suites
+node tests/http.mjs # HTTP transport suite (server must be running)
+```
+
+### Sandbox requirement
+
+The agent definition enables the sandbox (`config.sandbox.enabled: true`) because
+hypothesis testing must run as real computed code, not LLM text math. TrueForge's
+catalog uses the **Daytona** provider - set a Daytona API key in Settings → Sandbox
+before creating sessions from this definition.
 
 ## Architecture
 
