@@ -88,6 +88,27 @@ export class ScenarioStore {
     };
   }
 
+  getCompactTelemetry(vin, pids, samplePeriodSeconds = 1) {
+    const requestedPids = pids?.length ? pids : this.listPids(vin);
+    if (requestedPids.length > 10) {
+      throw new Error("At most 10 PIDs may be requested in one compact telemetry bundle");
+    }
+
+    const series = {};
+    for (const pid of requestedPids) {
+      const log = this.getSensorLog(vin, pid);
+      series[log.pid] = downsampleLog(log, samplePeriodSeconds);
+    }
+
+    return {
+      vin,
+      sample_period_seconds: samplePeriodSeconds,
+      note:
+        "Deterministic, bounded telemetry for sandbox analysis. Values are bucket means except cumulative misfire_count, which uses the bucket-end value.",
+      series,
+    };
+  }
+
   listPids(vin) {
     const dir = this.resolveScenario(vin);
     const sensorsDir = join(dir, "sensors");
@@ -189,4 +210,28 @@ function readdirSafe(dir) {
   } catch {
     return [];
   }
+}
+
+function downsampleLog(log, samplePeriodSeconds) {
+  const buckets = new Map();
+  for (let index = 0; index < log.t.length; index += 1) {
+    const bucket = Math.floor(log.t[index] / samplePeriodSeconds);
+    const values = buckets.get(bucket) || [];
+    values.push(log.value[index]);
+    buckets.set(bucket, values);
+  }
+
+  const t = [];
+  const value = [];
+  for (const [bucket, values] of buckets) {
+    t.push(Number((bucket * samplePeriodSeconds).toFixed(3)));
+    value.push(
+      log.pid === "misfire_count"
+        ? values.at(-1)
+        : log.pid === "o2_voltage"
+          ? values[Math.floor(values.length/2)] // Middle sample preserves switching
+          : Number((values.reduce((sum, item) => sum + item, 0) / values.length).toFixed(4))
+    );
+  }
+  return { pid: log.pid, unit: log.unit, hz: 1 / samplePeriodSeconds, t, value };
 }

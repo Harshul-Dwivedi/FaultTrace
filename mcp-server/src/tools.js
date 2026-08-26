@@ -57,6 +57,31 @@ export function registerTools(server, store) {
   );
 
   server.registerTool(
+    "get_compact_telemetry",
+    {
+      title: "Get compact synchronized telemetry",
+      description:
+        "Read a bounded, synchronized telemetry bundle for sandbox computation. Downsamples raw 10 Hz logs into deterministic time buckets, avoiding oversized tool responses. Use this for correlation, MAF plausibility, O2 behavior, and misfire timing; write and run the actual calculations in the sandbox. Read-only, safe.",
+      inputSchema: {
+        vin: VinSchema,
+        pids: z
+          .array(z.string())
+          .min(1)
+          .max(10)
+          .describe("PIDs to include, e.g. [stft, ltft, engine_load, rpm, maf, o2_voltage, misfire_count]"),
+        sample_period_seconds: z
+          .number()
+          .min(0.5)
+          .max(10)
+          .optional()
+          .describe("Seconds per output bucket; defaults to 1 second"),
+      },
+    },
+    async ({ vin, pids, sample_period_seconds }) =>
+      jsonResult(store.getCompactTelemetry(vin, pids, sample_period_seconds ?? 1))
+  );
+
+  server.registerTool(
     "get_pid_list",
     {
       title: "List available PIDs",
