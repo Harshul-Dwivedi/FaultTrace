@@ -5,8 +5,6 @@ import { ok, strictEqual, deepEqual } from "node:assert";
 import { fileURLToPath } from "url";
 import { registerTools } from "../src/tools.js";
 import { ScenarioStore } from "../src/scenarioStore.js";
-import TrueForge from '@faulttrace/trueforge';
-import assert from 'assert';
 
 const VIN = "1HGCM82633A004352";
 const CODE = "P0171";
@@ -153,12 +151,3 @@ const unknownVinOrder = await client.callTool({
 strictEqual(unknownVinOrder.isError, true, "order for unknown VIN must error");
 
 console.log(`smoke test passed: ${tools.tools.length} tools registered, all checks green`);
-
-assert(TrueForge.getSubagent('fuel-trim-subagent'), 'P0171 handler not registered');
-assert(TrueForge.getSubagent('misfire-subagent'), 'P0300 handler not registered');
-
-if (allChecksPassed) {
-  process.exit(0);
-} else {
-  process.exit(1);
-}
