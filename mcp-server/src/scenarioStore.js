@@ -228,7 +228,9 @@ function downsampleLog(log, samplePeriodSeconds) {
     value.push(
       log.pid === "misfire_count"
         ? values.at(-1)
-        : Number((values.reduce((sum, item) => sum + item, 0) / values.length).toFixed(4))
+        : log.pid === "o2_voltage"
+          ? values[Math.floor(values.length/2)] // Middle sample preserves switching
+          : Number((values.reduce((sum, item) => sum + item, 0) / values.length).toFixed(4))
     );
   }
   return { pid: log.pid, unit: log.unit, hz: 1 / samplePeriodSeconds, t, value };
