@@ -1,19 +1,19 @@
 {
-  "code": "P0300",
-  "title": "Random/Multiple Cylinder Misfire Detected",
+  "code": "P0102",
+  "title": "Mass Air Flow Circuit Low Input",
   "common_causes": [
-    { "cause": "vacuum_leak", "prior": 0.3, "label": "Vacuum leak causing lean misfire" },
-    { "cause": "ignition_fault", "prior": 0.3, "label": "Ignition fault (coils, plugs, wires)" },
-    { "cause": "maf_fault", "prior": 0.15, "label": "MAF under-reporting causing lean mixture" },
-    { "cause": "weak_fuel_delivery", "prior": 0.2, "label": "Fuel delivery insufficient under load" },
-    { "cause": "compression_mechanical", "prior": 0.05, "label": "Mechanical / compression issue" }
+    { "cause": "maf_contamination", "prior": 0.4, "label": "MAF hot-wire contamination (oil, dirt, debris)" },
+    { "cause": "maf_electrical_fault", "prior": 0.25, "label": "MAF sensor electrical fault (wiring, connector)" },
+    { "cause": "maf_ground_fault", "prior": 0.15, "label": "MAF ground circuit fault" },
+    { "cause": "air_intake_restrict", "prior": 0.1, "label": "Air intake restriction upstream of MAF" },
+    { "cause": "ecu_fault", "prior": 0.1, "label": "ECU MAF input circuit fault" }
   ],
   "characteristic_signatures": {
-    "vacuum_leak": "Misfire rate rises with load alongside elevated positive fuel trims (>+10%); random distribution across cylinders.",
-    "ignition_fault": "Misfires concentrated on specific cylinders with normal fuel trims.",
-    "maf_fault": "Misfires accompany implausible/erratic MAF readings.",
-    "weak_fuel_delivery": "Misfires at high load/high demand with negative-going trims or low fuel pressure.",
-    "compression_mechanical": "Misfire persists at all conditions, often single-cylinder; compression test abnormal."
+    "maf_contamination": "MAF reads consistently low with erratic spikes; contamination often from PCV oil vapor or dirty air filter; trims compensate proportionally.",
+    "maf_electrical_fault": "MAF signal may drop to zero or exhibit intermittent dropouts; correlated with electrical noise.",
+    "maf_ground_fault": "MAF reading offset by a constant; all readings shifted uniformly.",
+    "air_intake_restrict": "MAF reads low but smoothly; restriction upstream causes uniform under-reporting without spikes.",
+    "ecu_fault": "MAF input circuit voltage out of spec; other sensors may also be affected."
   },
   "available_tests": [
     {
@@ -34,7 +34,7 @@
       "cost": "low",
       "expected_likelihood": {
         "vacuum_leak": 0.85,
-        "maf_fault": 0.90,
+        "maf_fault": 0.95,
         "weak_fuel_delivery": 0.10,
         "ignition_fault": 0.10,
         "o2_sensor_fault": 0.10

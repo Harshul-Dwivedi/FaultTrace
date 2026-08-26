@@ -1,0 +1,4 @@
+[
+  { "code": "P0171", "status": "active", "set_at_engine_hours": 6543.2, "description": "System Too Lean (Bank 1)" },
+  { "code": "P0133", "status": "active", "set_at_engine_hours": 6543.1, "description": "O2 Sensor Slow Response (Bank 1 Sensor 1)" }
+]

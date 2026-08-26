@@ -7,6 +7,8 @@ import { registerTools } from "../src/tools.js";
 import { ScenarioStore } from "../src/scenarioStore.js";
 
 const VIN = "1HGCM82633A004352";
+const VIN_B = "2T1BURHE0JC000001";
+const VIN_C = "1FTZX17N9XKA00002";
 const CODE = "P0171";
 const TEST_ID = "trim_recheck_booster_hose_clamped";
 
@@ -30,7 +32,9 @@ const tools = await client.listTools();
 ok(tools.tools.length >= 10, `expected >= 10 tools, got ${tools.tools.length}`);
 
 const vins = text(await client.callTool({ name: "list_vehicles", arguments: {} }));
-deepEqual(vins.vins, [VIN]);
+ok(vins.vins.includes(VIN), "scenario A VIN must exist");
+ok(vins.vins.includes(VIN_B), "scenario B VIN must exist");
+ok(vins.vins.includes(VIN_C), "scenario C VIN must exist");
 
 const dtcs = text(await client.callTool({ name: "get_dtcs", arguments: { vin: VIN } }));
 strictEqual(dtcs.length, 3);
@@ -100,6 +104,25 @@ const kb = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments:
 const priorSum = kb.common_causes.reduce((s, c) => s + c.prior, 0);
 ok(Math.abs(priorSum - 1) < 0.01, `priors must sum to ~1, got ${priorSum}`);
 ok(kb.characteristic_signatures.vacuum_leak.length > 20);
+
+// Scenario B: MAF fault
+const dtcsB = text(await client.callTool({ name: "get_dtcs", arguments: { vin: VIN_B } }));
+ok(dtcsB.length >= 2, `scenario B should have >= 2 DTCs, got ${dtcsB.length}`);
+ok(dtcsB.some((d) => d.code === "P0171"), "scenario B must have P0171");
+ok(dtcsB.some((d) => d.code === "P0102"), "scenario B must have P0102 (MAF)");
+const frameB = text(await client.callTool({ name: "get_freeze_frame", arguments: { vin: VIN_B, code: "P0102" } }));
+ok(frameB.maf < 15, "scenario B freeze-frame MAF should be low (contaminated)");
+const kbP0102 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0102" } }));
+ok(kbP0102.common_causes.length >= 3, "P0102 knowledge must have causes");
+
+// Scenario C: O2 sensor fault
+const dtcsC = text(await client.callTool({ name: "get_dtcs", arguments: { vin: VIN_C } }));
+ok(dtcsC.length >= 2, `scenario C should have >= 2 DTCs, got ${dtcsC.length}`);
+ok(dtcsC.some((d) => d.code === "P0133"), "scenario C must have P0133 (O2 slow)");
+const frameC = text(await client.callTool({ name: "get_freeze_frame", arguments: { vin: VIN_C, code: "P0133" } }));
+ok(frameC.o2_voltage < 0.1, "scenario C O2 should be stuck lean");
+const kbP0133 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0133" } }));
+ok(kbP0133.common_causes.length >= 3, "P0133 knowledge must have causes");
 
 const refused = await client.callTool({
   name: "request_measurement",

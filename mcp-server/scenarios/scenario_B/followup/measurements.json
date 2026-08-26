@@ -1,0 +1,24 @@
+{
+  "known_good_maf_swap": {
+    "test_id": "known_good_maf_swap",
+    "type": "maf_sensor_swap",
+    "result": "trims_normalized",
+    "detail": "With a known-good MAF installed, short-term fuel trim drops to +0.8% within 30 seconds. Long-term trim begins learning down. Confirms the original MAF is the fault source.",
+    "stft_normalized": 0.8,
+    "duration_s": 30
+  },
+  "vacuum_leak_smoke": {
+    "test_id": "vacuum_leak_smoke",
+    "type": "smoke_machine_intake",
+    "result": "no_leak_found",
+    "detail": "Smoke machine pressurized intake to 15 in-Hg. No visible smoke escape from any hose, gasket, or fitting. Rules out vacuum leak as primary cause."
+  },
+  "fuel_pressure_test": {
+    "test_id": "fuel_pressure_test",
+    "type": "fuel_pressure_static",
+    "result": "within_spec",
+    "measured_psi": 44.2,
+    "expected_psi_range": [38, 48],
+    "detail": "Fuel pressure within spec at idle and under load. Fuel pump and regulator operating correctly."
+  }
+}

@@ -2,16 +2,16 @@
   "code": "P0300",
   "title": "Random/Multiple Cylinder Misfire Detected",
   "common_causes": [
-    { "cause": "vacuum_leak", "prior": 0.3, "label": "Vacuum leak causing lean misfire" },
-    { "cause": "ignition_fault", "prior": 0.3, "label": "Ignition fault (coils, plugs, wires)" },
-    { "cause": "maf_fault", "prior": 0.15, "label": "MAF under-reporting causing lean mixture" },
-    { "cause": "weak_fuel_delivery", "prior": 0.2, "label": "Fuel delivery insufficient under load" },
-    { "cause": "compression_mechanical", "prior": 0.05, "label": "Mechanical / compression issue" }
+    { "cause": "vacuum_leak", "prior": 0.25, "label": "Vacuum leak causing lean misfire" },
+    { "cause": "ignition_fault", "prior": 0.25, "label": "Ignition fault (coils, plugs, wires)" },
+    { "cause": "maf_fault", "prior": 0.25, "label": "MAF under-reporting causing lean mixture" },
+    { "cause": "weak_fuel_delivery", "prior": 0.15, "label": "Fuel delivery insufficient under load" },
+    { "cause": "compression_mechanical", "prior": 0.1, "label": "Mechanical / compression issue" }
   ],
   "characteristic_signatures": {
     "vacuum_leak": "Misfire rate rises with load alongside elevated positive fuel trims (>+10%); random distribution across cylinders.",
     "ignition_fault": "Misfires concentrated on specific cylinders with normal fuel trims.",
-    "maf_fault": "Misfires accompany implausible/erratic MAF readings.",
+    "maf_fault": "Misfires accompany erratic/implausible MAF readings; trims elevated proportional to MAF error.",
     "weak_fuel_delivery": "Misfires at high load/high demand with negative-going trims or low fuel pressure.",
     "compression_mechanical": "Misfire persists at all conditions, often single-cylinder; compression test abnormal."
   },
@@ -34,7 +34,7 @@
       "cost": "low",
       "expected_likelihood": {
         "vacuum_leak": 0.85,
-        "maf_fault": 0.90,
+        "maf_fault": 0.95,
         "weak_fuel_delivery": 0.10,
         "ignition_fault": 0.10,
         "o2_sensor_fault": 0.10

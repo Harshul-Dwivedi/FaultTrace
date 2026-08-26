@@ -1,0 +1,30 @@
+{
+  "P0171": {
+    "code": "P0171",
+    "captured_at_engine_hours": 6543.2,
+    "rpm": 2500,
+    "engine_load": 70.5,
+    "coolant_temp": 90.8,
+    "short_fuel_trim": 16.2,
+    "long_fuel_trim": 14.8,
+    "vehicle_speed": 60,
+    "maf": 28.4,
+    "o2_voltage": 0.03,
+    "intake_air_temp": 32,
+    "fuel_pressure": 39.8
+  },
+  "P0133": {
+    "code": "P0133",
+    "captured_at_engine_hours": 6543.1,
+    "rpm": 2480,
+    "engine_load": 69.8,
+    "coolant_temp": 90.5,
+    "short_fuel_trim": 15.8,
+    "long_fuel_trim": 14.5,
+    "vehicle_speed": 59,
+    "maf": 28.1,
+    "o2_voltage": 0.04,
+    "intake_air_temp": 32,
+    "o2_switch_rate_per_sec": 0.02
+  }
+}

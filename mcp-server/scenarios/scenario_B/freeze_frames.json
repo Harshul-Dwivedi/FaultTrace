@@ -1,0 +1,44 @@
+{
+  "P0171": {
+    "code": "P0171",
+    "captured_at_engine_hours": 8921.5,
+    "rpm": 2400,
+    "engine_load": 65.2,
+    "coolant_temp": 92.1,
+    "short_fuel_trim": 22.3,
+    "long_fuel_trim": 19.8,
+    "vehicle_speed": 55,
+    "maf": 12.84,
+    "o2_voltage": 0.18,
+    "intake_air_temp": 35,
+    "fuel_pressure": 44.2
+  },
+  "P0102": {
+    "code": "P0102",
+    "captured_at_engine_hours": 8921.4,
+    "rpm": 2380,
+    "engine_load": 64.8,
+    "coolant_temp": 92.0,
+    "short_fuel_trim": 21.5,
+    "long_fuel_trim": 19.2,
+    "vehicle_speed": 54,
+    "maf": 11.2,
+    "o2_voltage": 0.22,
+    "intake_air_temp": 35,
+    "fuel_pressure": 44.5
+  },
+  "P0300": {
+    "code": "P0300",
+    "captured_at_engine_hours": 8921.6,
+    "rpm": 2420,
+    "engine_load": 66.0,
+    "coolant_temp": 92.3,
+    "short_fuel_trim": 24.1,
+    "long_fuel_trim": 20.1,
+    "vehicle_speed": 56,
+    "maf": 10.8,
+    "o2_voltage": 0.16,
+    "intake_air_temp": 35,
+    "misfire_counts_cyl_1_to_4": [12, 8, 14, 10]
+  }
+}

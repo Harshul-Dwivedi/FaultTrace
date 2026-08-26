@@ -13,7 +13,7 @@
     "start": "node src/index.js",
     "start:http": "node src/http.js",
     "test": "node tests/smoke.mjs && node tests/stdio.mjs",
-    "generate:data": "node scripts/generate-scenario-A.mjs"
+    "generate:data": "node scripts/generate-scenario-A.mjs && node scripts/generate-scenario-B.mjs && node scripts/generate-scenario-C.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
