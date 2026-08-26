@@ -152,3 +152,6 @@ strictEqual(unknownVinOrder.isError, true, "order for unknown VIN must error");
 
 console.log(`smoke test passed: ${tools.tools.length} tools registered, all checks green`);
 process.exit(0);
+
+assert(TrueForge.getSubagent('fuel-trim-subagent'), 'P0171 handler not registered');
+assert(TrueForge.getSubagent('misfire-subagent'), 'P0300 handler not registered');

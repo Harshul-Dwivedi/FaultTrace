@@ -6,3 +6,11 @@ function routeHypothesis(hypothesis) {
   };
   return subagentMap[hypothesis.code] || 'default-subagent';
 }
+
+function registerSubagents() {
+  TrueForge.registerSubagent('fuel-trim-subagent', require('../subagents/fuel-trim-subagent'));
+  TrueForge.registerSubagent('misfire-subagent', require('../subagents/misfire-subagent'));
+}
+
+// Initialize during agent startup
+registerSubagents();
