@@ -151,4 +151,3 @@ const unknownVinOrder = await client.callTool({
 strictEqual(unknownVinOrder.isError, true, "order for unknown VIN must error");
 
 console.log(`smoke test passed: ${tools.tools.length} tools registered, all checks green`);
-process.exit(0);
