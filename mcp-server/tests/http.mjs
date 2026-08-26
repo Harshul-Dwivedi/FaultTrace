@@ -16,4 +16,17 @@ const frame = JSON.parse(result.content[0].text);
 console.log(`freeze frame via HTTP: load=${frame.engine_load}%, ltft=${frame.long_fuel_trim}%`);
 
 if (frame.engine_load <= 50) throw new Error("unexpected freeze-frame values");
-process.exit(0);
+
+const compactResult = await client.callTool({
+  name: "get_compact_telemetry",
+  arguments: {
+    vin: "1HGCM82633A004352",
+    pids: ["stft", "engine_load", "maf", "misfire_count"],
+    sample_period_seconds: 1,
+  },
+});
+const compact = JSON.parse(compactResult.content[0].text);
+if (compact.series.stft.t.length !== 60) throw new Error("compact telemetry must contain 60 one-second buckets");
+console.log(`compact telemetry via HTTP: ${Object.keys(compact.series).length} PIDs, ${compact.series.stft.t.length} buckets`);
+
+await client.close();

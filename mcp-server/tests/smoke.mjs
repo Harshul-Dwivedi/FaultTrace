@@ -54,6 +54,21 @@ const stft = text(
 strictEqual(stft.t.length, Math.round(10 * 10) + 1, "10 Hz x 10 s window");
 ok(Math.max(...stft.value) > 12, "trims must climb into lean territory under load");
 
+const compact = text(
+  await client.callTool({
+    name: "get_compact_telemetry",
+    arguments: {
+      vin: VIN,
+      pids: ["stft", "ltft", "engine_load", "rpm", "maf", "o2_voltage", "misfire_count"],
+      sample_period_seconds: 1,
+    },
+  })
+);
+strictEqual(compact.sample_period_seconds, 1, "compact bundle reports requested period");
+strictEqual(compact.series.stft.t.length, 60, "60-second source becomes 60 one-second buckets");
+strictEqual(compact.series.misfire_count.value.at(-1), 89, "cumulative counter preserves final count");
+ok(compact.series.stft.value.every(Number.isFinite), "compact values remain numeric");
+
 const emptyBeforeStart = text(
   await client.callTool({
     name: "get_sensor_log",
