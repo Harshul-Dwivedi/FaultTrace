@@ -8,8 +8,9 @@ const COST_MAP: Record<string, string> = {
 }
 
 function posteriorOf(h: Hypothesis): number {
-  // Parser stores posterior on a 0-100 scale; normalize to 0-1 for entropy math.
-  return h.posterior > 1 ? h.posterior / 100 : h.posterior
+  // parseHypotheses always stores Hypothesis.posterior on a 0-100 scale,
+  // so normalize to a 0-1 probability for entropy math.
+  return h.posterior / 100
 }
 
 const KB_KEY_PATTERNS: Record<string, RegExp> = {
@@ -23,7 +24,7 @@ const KB_KEY_PATTERNS: Record<string, RegExp> = {
 function entropy(p: number[]): number {
   let h = 0
   for (const x of p) {
-    if (x > 0) h -= x * Math.log(x)
+    if (x > 0) h -= x * Math.log2(x)
   }
   return h
 }
