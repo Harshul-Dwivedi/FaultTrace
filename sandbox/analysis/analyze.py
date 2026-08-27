@@ -41,9 +41,11 @@ import math
 import sys
 
 
-# Canonical hypothesis names the analyzer can score. Scenario-specific DTC
-# knowledge (e.g. P0133) uses finer-grained cause names; those are collapsed
-# onto this family here so `bayesian_update` never silently zeroes a prior.
+# Canonical hypothesis *families* the analyzer can score (its telemetry
+# vocabulary). Scenario-specific DTC knowledge (e.g. P0133) uses finer-grained
+# cause names; those are grouped under these families for scoring, while their
+# individual identity is preserved in the posterior so a differential and
+# information-gain test selection remain meaningful.
 CANONICAL_CAUSES = (
     "vacuum_leak",
     "maf_fault",
@@ -53,7 +55,8 @@ CANONICAL_CAUSES = (
 )
 
 # Scenario-specific knowledge cause -> canonical family it abbreviates to.
-# Used when building priors / test likelihoods so every prior can be scored.
+# Used to project the analyzer's family-level likelihoods onto fine-grained
+# prior keys so every prior is scored without collapsing the hypothesis set.
 CAUSE_ALIASES = {
     # MAF family
     "maf_contamination": "maf_fault",
@@ -67,28 +70,18 @@ CAUSE_ALIASES = {
     "o2_heater_fault": "o2_sensor_fault",
 }
 
-# Load condition -> canonical cause this analyzer can genuinely diagnose.
-# Causes with no alias and not in CANONICAL_CAUSES get a neutral (no-evidence)
-# likelihood, so they are not fabricated a zero or a penalty.
-UNKNOWN_CAUSE = "__unknown__"
+# Reverse: canonical family -> every fine-grained alias it contains.
+FAMILY_ALIASES = {}
+for _alias, _fam in CAUSE_ALIASES.items():
+    FAMILY_ALIASES.setdefault(_fam, []).append(_alias)
 
 
-def canonicalize(cause):
-    """Map a knowledge cause name onto the analyzer's canonical vocabulary."""
-    return CAUSE_ALIASES.get(cause, cause if cause in CANONICAL_CAUSES else UNKNOWN_CAUSE)
+def family_of(cause):
+    """Canonical family a cause belongs to (itself if already canonical), else None."""
+    if cause in CANONICAL_CAUSES:
+        return cause
+    return CAUSE_ALIASES.get(cause)
 
-
-def canonicalize_likelihoods(likelihoods):
-    """Merge a test's expected_likelihood / evidence into canonical cause space."""
-    out = {}
-    for cause, value in (likelihoods or {}).items():
-        c = canonicalize(cause)
-        if c == UNKNOWN_CAUSE:
-            continue
-        # For a given family, keep the strongest stated likelihood (a test
-        # probes the family; its most confident sub-cause represents the family).
-        out[c] = max(out.get(c, 0.0), float(value))
-    return out
 
 
 # --------------------------------------------------------------------------- #
@@ -217,54 +210,65 @@ def cross_correlate(series_a, series_b, max_lag):
 def sensor_plausibility(maf, rpm, load, o2, trims):
     """Is each sensor physically consistent, or is a sensor itself suspect?
 
-    Returns per-sensor flags:
+    Computes each discriminator only from the inputs actually supplied and tags
+    its availability, so a missing signal is never mistaken for a contradictory
+    observation. Returns per-sensor flags:
       - maf_smooth:  does the MAF follow load smoothly (low first-difference
-        jitter and tight load correlation) rather than spike erratically?
-        A *condition* (leak) shows smooth low MAF; a *sensor* (MAF fault)
-        shows erratic MAF.
+        jitter and, when load is present, tight load correlation)? A *condition*
+        (leak) shows smooth low MAF; a *sensor* (MAF fault) shows erratic MAF.
       - maf_erratic: inverse of smooth — high jitter and/or poor load
         correlation; the decisive signature of a faulty MAF sensor.
-      - maf_jitter_pct / maf_load_corr: the raw discriminators behind the above.
-      - o2_switching: does the O2 voltage cross/switch (closed-loop cycling)?
-        A real sensor switches; a stuck O2 flatlines.
-      - o2_railed: O2 pinned near one rail (0V or ~1V).
+      - o2_switching / o2_railed: O2 closed-loop switching vs pinned near a rail.
+      - trim_*: trim direction vs load, and gradual-vs-immediate climb.
+      - <field>_present: whether the inputs backing that field were available.
     """
     out = {}
-    # Smoothness of MAF vs its own local trend: erratic = high high-freq noise.
-    # We gauge erraticness from first-difference jitter (not CV, whose value is
-    # dominated by the load range across a drive cycle) plus how tightly the MAF
-    # tracks load. A *condition* (leak) keeps a smooth low-offset MAF; a *faulty
-    # sensor* (contaminated MAF) spikes erratically and decorrelates from load.
-    if maf and len(maf) >= 5:
+    have_maf = bool(maf and len(maf) >= 5)
+    have_o2 = bool(o2 and len(o2) >= 5)
+    have_load = bool(load and len(load) >= 5)
+    have_trim = bool(trims and len(trims) >= 5)
+    out["maf_present"] = have_maf
+    out["o2_present"] = have_o2
+    out["load_present"] = have_load
+    out["trim_present"] = have_trim
+
+    # MAF smoothness via first-difference jitter (CV is load-range dominated).
+    # A *condition* (leak) keeps a smooth low-offset MAF; a *faulty sensor*
+    # (contaminated MAF) spikes erratically and decorrelates from load.
+    if have_maf:
         diffs = [abs(maf[i] - maf[i - 1]) for i in range(1, len(maf))]
         mean_abs = _mean(maf)
-        out["maf_jitter_pct"] = round(100.0 * _mean(diffs) / mean_abs, 3) if mean_abs else 0.0
+        jitter = round(100.0 * _mean(diffs) / mean_abs, 3) if mean_abs else 0.0
+        load_corr = round(_corr(maf, load), 4) if have_load and len(maf) == len(load) else None
+        out["maf_jitter_pct"] = jitter
+        out["maf_load_corr"] = load_corr if load_corr is not None else 0.0
+        out["maf_load_present"] = load_corr is not None
+        # With no load reference, fall back to jitter alone (smooth < 10%,
+        # erratic >= 15%) so MAF diagnosis still works on a MAF+load-free bundle.
+        if load_corr is not None:
+            out["maf_smooth"] = bool(jitter < 5.0 and load_corr > 0.95)
+            out["maf_erratic"] = bool(jitter >= 8.0 or load_corr < 0.90)
+        else:
+            out["maf_smooth"] = bool(jitter < 10.0)
+            out["maf_erratic"] = bool(jitter >= 15.0)
     else:
-        out["maf_jitter_pct"] = 0.0
-
-    # Does MAF move in sync with load/rpm? A healthy MAF tracks airflow demand.
-    if maf and load and len(maf) == len(load):
-        out["maf_load_corr"] = round(_corr(maf, load), 4)
-    else:
-        out["maf_load_corr"] = 0.0
-
-    out["maf_smooth"] = bool(out["maf_jitter_pct"] < 5.0 and out["maf_load_corr"] > 0.95)
-    out["maf_erratic"] = bool(out["maf_jitter_pct"] >= 8.0 or out["maf_load_corr"] < 0.90)
+        out.update(maf_jitter_pct=0.0, maf_load_corr=0.0, maf_load_present=False,
+                   maf_smooth=False, maf_erratic=False)
 
     # O2 switching: count sign changes / threshold crossings in the signal.
-    if o2 and len(o2) >= 5:
+    if have_o2 and len(o2) >= 5:
         crossings = sum(1 for i in range(1, len(o2)) if (o2[i] - 0.45) * (o2[i - 1] - 0.45) < 0)
         span = max(o2) - min(o2)
         lo = min(o2)
         out["o2_crossings"] = crossings
         out["o2_span"] = round(span, 3)
-        out["o2_railed_low"] = bool(lo < 0.2 and span < 0.3 and crossings <= 2)
+        out["o2_railed"] = bool(lo < 0.2 and span < 0.3 and crossings <= 2)
         out["o2_switching"] = bool(crossings >= 3 and span >= 0.3)
     else:
-        out.update(o2_crossings=0, o2_span=0.0, o2_railed_low=False, o2_switching=False)
+        out.update(o2_crossings=0, o2_span=0.0, o2_railed=False, o2_switching=False)
 
-    # Trim direction at high load: negative-going (weak fuel) vs positive (lean).
-    if trims and load and len(trims) == len(load):
+    # Trim direction vs load.
+    if have_trim and have_load and len(trims) == len(load):
         hi = [i for i in range(len(load)) if load[i] > 50]
         if hi:
             out["trim_at_high_load"] = round(_mean([trims[i] for i in hi]), 3)
@@ -273,11 +277,13 @@ def sensor_plausibility(maf, rpm, load, o2, trims):
             out["trim_at_high_load"] = 0.0
             out["trim_high_load_negative"] = False
         out["trim_rising_with_load"] = bool(_corr(trims, load) >= 0.5)
+        out["trim_vs_load_present"] = True
     else:
-        out.update(trim_at_high_load=0.0, trim_high_load_negative=False, trim_rising_with_load=False)
+        out.update(trim_at_high_load=0.0, trim_high_load_negative=False,
+                   trim_rising_with_load=False, trim_vs_load_present=False)
 
     # Gradual vs immediate trim climb (O2-sensor fault integrates slowly).
-    if trims and len(trims) >= 20:
+    if have_trim:
         half = len(trims) // 2
         first, second = _mean(trims[:half]), _mean(trims[half:])
         out["trim_first_half"], out["trim_second_half"] = round(first, 3), round(second, 3)
@@ -314,32 +320,29 @@ def _entropy(p, base=2.0):
 def bayesian_update(priors, likelihoods):
     """Posterior ∝ prior × likelihood, normalized across hypotheses.
 
-    Priors are canonicalized through `CAUSE_ALIASES` first so scenario-specific
-    DTC knowledge collapses onto the analyzer's canonical families. Any cause
-    without a real likelihood is treated as *no evidence* (likelihood 0.5) so
-    its posterior stays equal to its prior — it is never silently zeroed nor
-    penalized for absent data.
+    Fine-grained DTC cause identity is preserved (no collapsing) so a genuine
+    differential and information-gain test selection remain possible. Each prior
+    key is scored with the likelihood for its own cause if present, else with
+    the likelihood for its canonical *family* (`family_of`), else treated as *no
+    evidence* (likelihood 0.5 -> posterior stays at its prior). Causes are never
+    silently zeroed nor penalized for absent data, and no valid cause is dropped.
     """
-    canon = {}
-    for cause, prior in priors.items():
-        c = canonicalize(cause)
-        if c == UNKNOWN_CAUSE:
-            continue  # analyzer has no vocabulary for it; drop, not zero
-        canon[c] = canon.get(c, 0.0) + max(0.0, prior)
-
-    tot_prior = sum(canon.values())
+    tot_prior = sum(max(0.0, v) for v in priors.values())
     if tot_prior <= 0:
         return {}
-    canon = {k: v / tot_prior for k, v in canon.items()}
 
-    keys = list(canon.keys())
+    keys = list(priors.keys())
     vals = []
     for k in keys:
-        prior = canon[k]
+        prior = max(0.0, priors.get(k, 0.0))
         if k in likelihoods:
             likelihood = max(0.0, min(1.0, float(likelihoods[k])))
         else:
-            likelihood = 0.5  # no evidence -> posterior = prior, no change
+            fam = family_of(k)
+            if fam in likelihoods:
+                likelihood = max(0.0, min(1.0, float(likelihoods[fam])))
+            else:
+                likelihood = 0.5  # no evidence -> posterior = prior, no change
         vals.append(prior * likelihood)
     total = sum(vals)
     if total <= 0:
@@ -412,67 +415,80 @@ def likelihoods_from_telemetry(series):
       - weak_fuel:      trims go NEGATIVE at high load.
       - ignition_fault: misfires present while trims stay near normal.
 
-    A hypothesis is only scored when its *deciding* signals are actually
-    present in the telemetry. A missing signal is treated as an unknown (the
-    cause key is omitted) so `bayesian_update` keeps its prior — missing data
-    is never converted into negative evidence or a fabricated likelihood.
+    Each hypothesis is scored independently, gated only on its *own* deciding
+    signals being present (a MAF+load bundle can still score `maf_fault`, for
+    example). A missing non-deciding signal is treated as unknown — it is never
+    converted into negative evidence or a fabricated likelihood, and hypotheses
+    whose deciding signals are absent are simply omitted so `bayesian_update`
+    keeps their prior.
     """
-    has_maf = _has(series, "maf")
-    has_load = _has(series, "engine_load")
-    has_o2 = _has(series, "o2_voltage")
-    has_trim = _has(series, "stft") or _has(series, "ltft")
+    trims = _series(series, "stft") or _series(series, "ltft")
+    maf = _series(series, "maf")
+    load = _series(series, "engine_load")
+    o2 = _series(series, "o2_voltage")
+
+    plaus = sensor_plausibility(maf, [], load, o2, trims)
+    has_maf = plaus["maf_present"]
+    has_o2 = plaus["o2_present"]
+    has_load = plaus["load_present"]
+    has_trim = plaus["trim_present"]
     has_misfire = _has(series, "misfire_count")
 
-    trims = _series(series, "stft") or _series(series, "ltft")
+    smooth = plaus.get("maf_smooth", False)
+    erratic = plaus.get("maf_erratic", False)
+    railed = plaus.get("o2_railed", False)
+    switches = plaus.get("o2_switching", False)
+    trim_rises = plaus.get("trim_rising_with_load", False)
+    trim_neg_high = plaus.get("trim_high_load_negative", False)
+    trim_slow = plaus.get("trim_climbs_gradually", False)
+
     likelihoods = {}
 
-    if has_maf and has_load and has_o2:
-        maf = _series(series, "maf")
-        load = _series(series, "engine_load")
-        o2 = _series(series, "o2_voltage")
-        plaus = sensor_plausibility(maf, [], load, o2, trims)
-        smooth = plaus.get("maf_smooth", False)
-        erratic = plaus.get("maf_erratic", False)
-        railed = plaus.get("o2_railed_low", False)
-        switches = plaus.get("o2_switching", False)
-        trim_rises = plaus.get("trim_rising_with_load", has_trim and False)
-        trim_neg_high = plaus.get("trim_high_load_negative", False)
-        trim_slow = plaus.get("trim_climbs_gradually", False)
-
-        if has_trim:
-            # vacuum_leak: smooth MAF AND trims climb with load AND O2 not railed.
-            vac_score = 0.5
-            if smooth and trim_rises and not railed:
-                vac_score += 0.5                       # textbook leak signature
-            elif not trim_rises:
-                vac_score -= 0.35                      # a leak always drives load-linked trims
-            if railed:
-                vac_score -= 0.2                       # railed O2 argues against a leak
-            likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
-
-            # weak_fuel_delivery: trims go negative at high load.
-            fuel_score = 0.5
-            fuel_score += 0.45 if trim_neg_high else 0.0
-            fuel_score += -0.15 if trim_rises else 0.0
-            likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
-
-        # maf_fault: erratic MAF is the decisive signature (MAF already present).
+    # maf_fault: erratic MAF is the decisive signature (MAF alone suffices).
+    if has_maf:
         maf_score = 0.5
         maf_score += 0.45 if erratic else -0.3
         likelihoods["maf_fault"] = max(0.05, min(1.0, maf_score))
+
+    # vacuum_leak: smooth MAF AND trims climb with load AND O2 not railed.
+    if has_maf and has_trim and has_o2:
+        vac_score = 0.5
+        if smooth and trim_rises and not railed:
+            vac_score += 0.5                       # textbook leak signature
+        elif not trim_rises:
+            vac_score -= 0.35                      # a leak always drives load-linked trims
+        if railed:
+            vac_score -= 0.2                       # railed O2 argues against a leak
+        likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
+
+        # weak_fuel_delivery: trims go negative at high load.
+        fuel_score = 0.5
+        fuel_score += 0.45 if trim_neg_high else 0.0
+        fuel_score += -0.15 if trim_rises else 0.0
+        likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
 
         # o2_sensor_fault: O2 railed/flatlined with no switching, healthy MAF.
         o2_score = 0.5
         o2_score += 0.45 if railed else 0.0
         o2_score += -0.35 if switches else 0.0
         o2_score += 0.15 if trim_slow else 0.0
-        if smooth and not trim_rises and has_trim:
+        if smooth and not trim_rises:
             o2_score += 0.15   # MAF healthy + trims not load-linked -> sensor, not condition
         likelihoods["o2_sensor_fault"] = max(0.05, min(1.0, o2_score))
-    else:
-        # No MAF/O2/load bundle -> none of the MAF/O2/leak hypotheses are computable.
-        pass
 
+    # weak_fuel / vacuum signals also matter when MAF is absent but trims+load
+    # are not (e.g. a fuel-trim+load bundle): still score fuel, and leak via trims.
+    if has_trim and has_load and not has_maf:
+        fuel_score = 0.5
+        fuel_score += 0.45 if trim_neg_high else 0.0
+        fuel_score += -0.15 if trim_rises else 0.0
+        likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
+        if trim_rises:
+            vac_score = 0.5
+            vac_score += 0.35
+            likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
+
+    # ignition_fault: misfires present while trims stay near normal.
     if has_misfire and has_trim:
         misfire = _series(series, "misfire_count")
         misfiring = bool(misfire and max(misfire) > 0)
@@ -506,10 +522,24 @@ def diagnose(series, priors, available_tests=None):
         COST_ORDER = {"low": 0, "medium": 1, "high": 2}
         gains = []
         for idx, t in enumerate(available_tests):
-            expected_lik = canonicalize_likelihoods(t.get("expected_likelihood"))
+            expected_lik = t.get("expected_likelihood")
             if not expected_lik:
                 continue
-            gain = expected_information_gain(posterior, expected_lik)
+            # Resolve the test's per-cause likelihoods onto the posterior's
+            # (possibly fine-grained) hypothesis names, matching a cause to its
+            # exact name, its canonical family, or its aliases. Unmatched
+            # hypotheses contribute no evidence (None) for this test.
+            resolved = {}
+            for pk in posterior:
+                if pk in expected_lik:
+                    resolved[pk] = expected_lik[pk]
+                else:
+                    fam = family_of(pk)
+                    fl = expected_lik.get(fam) if fam else None
+                    resolved[pk] = fl if fl is not None else expected_lik.get(pk)
+            if sum(1 for v in resolved.values() if v is not None) < 2:
+                continue
+            gain = expected_information_gain(posterior, resolved)
             if gain is None:
                 continue
             gains.append({
@@ -522,10 +552,16 @@ def diagnose(series, priors, available_tests=None):
         # Rank by information gain, then prefer the cheapest test within 90% of
         # the best gain (deterministic tie-break by original knowledge order).
         best_gain = max((g["expected_gain_bits"] for g in gains), default=0.0)
-        best_candidates = [g for g in gains if g["expected_gain_bits"] >= 0.90 * best_gain]
-        best_candidates.sort(
-            key=lambda g: (COST_ORDER.get(g["cost"], 99), -g["expected_gain_bits"], g["_idx"])
-        )
+        # Only a *meaningfully positive* best gain justifies a physical-action
+        # recommendation; if no test can reduce uncertainty, recommend nothing.
+        MIN_GAIN_BITS = 0.05
+        if best_gain >= MIN_GAIN_BITS:
+            best_candidates = [g for g in gains if g["expected_gain_bits"] >= 0.90 * best_gain]
+            best_candidates.sort(
+                key=lambda g: (COST_ORDER.get(g["cost"], 99), -g["expected_gain_bits"], g["_idx"])
+            )
+        else:
+            best_candidates = []
         gains.sort(key=lambda g: g["expected_gain_bits"], reverse=True)
         result["test_gains"] = [
             {k: v for k, v in g.items() if k not in ("_idx",)} for g in gains

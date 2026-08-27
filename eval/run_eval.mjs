@@ -21,6 +21,23 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SCEN_DIR = join(ROOT, "mcp-server", "scenarios");
 const ANALYZE = join(ROOT, "sandbox", "analysis", "analyze.py");
 
+// Canonical cause families (mirrors analyze.py's CAUSE_ALIASES) used to map a
+// fine-grained posterior cause onto the family the scenario ground truth names.
+const CANONICAL = {
+  maf_fault: ["maf_contamination", "maf_electrical_fault", "maf_ground_fault", "air_intake_restrict", "ecu_fault"],
+  o2_sensor_fault: ["o2_sensor_contamination", "o2_sensor_aging", "o2_heater_fault"],
+};
+const CANONICAL_CAUSES = new Set([
+  "vacuum_leak", "maf_fault", "weak_fuel_delivery", "ignition_fault", "o2_sensor_fault",
+]);
+function familyOf(cause) {
+  if (CANONICAL_CAUSES.has(cause)) return cause;
+  for (const [fam, aliases] of Object.entries(CANONICAL)) {
+    if (aliases.includes(cause)) return fam;
+  }
+  return cause;
+}
+
 function resolvePython() {
   const candidates = [
     process.env.FAULTTRACE_PYTHON,
@@ -161,10 +178,11 @@ function assertScenario(scenario) {
   const result = runAnalyze(telemetry, priors, tests);
   const ranked = result.ranked ?? [];
   const top = ranked[0]?.cause ?? null;
+  const topFamily = familyOf(top);
   const topPost = ranked[0]?.posterior ?? 0;
   const recTest = result.recommended_test?.test_id ?? null;
 
-  const pass = top === expected && topPost > 0 && recTest === expectedTest;
+  const pass = topFamily === expected && topPost > 0 && recTest === expectedTest;
   const recTestStr = recTest ? ` | recommended test: ${recTest}` : "";
 
   console.log(`\n=== ${scenario} ===`);
