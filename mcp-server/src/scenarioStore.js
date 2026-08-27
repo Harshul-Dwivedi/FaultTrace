@@ -202,7 +202,10 @@ export class ScenarioStore {
 
   getVehicleInfo(vin) {
     const dir = this.resolveScenario(vin);
-    return this.loadJson(join(dir, "meta.json"), null);
+    const meta = this.loadJson(join(dir, "meta.json"), null);
+    if (!meta) return null;
+    const { ground_truth_eval_only, notes, ...safe } = meta;
+    return safe;
   }
 }
 

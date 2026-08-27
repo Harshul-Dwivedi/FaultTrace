@@ -124,6 +124,17 @@ ok(frameC.o2_voltage < 0.1, "scenario C O2 should be stuck lean");
 const kbP0133 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0133", vin: VIN_C } }));
 ok(kbP0133.common_causes.length >= 3, "P0133 knowledge must have causes");
 
+// get_vehicle_info must not leak ground truth
+const infoA = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN } }));
+ok(infoA.vehicle, "vehicle info must include vehicle description");
+ok(infoA.vehicle.includes("2.4"), "vehicle info must contain displacement");
+strictEqual(infoA.ground_truth_eval_only, undefined, "ground truth must not be exposed");
+strictEqual(infoA.notes, undefined, "notes must not be exposed");
+
+const infoB = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN_B } }));
+ok(infoB.vehicle, "scenario B vehicle info must include vehicle description");
+strictEqual(infoB.ground_truth_eval_only, undefined, "scenario B ground truth must not be exposed");
+
 const refused = await client.callTool({
   name: "request_measurement",
   arguments: { vin: VIN, test_id: TEST_ID, justification: "discriminate leak vs MAF" },
