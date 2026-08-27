@@ -487,3 +487,18 @@ end-to-end:
   via `PUT /api/v1/agents/{id}` `{"manifest": {...}}`.
 - **Tests**: `smoke.mjs` asserts `run_analysis` returns the correct top-cause family and recommended
   test for A/B/C; npm test green (13 tools), eval still 3/3 PASS.
+
+**PR #10 Qodo remediation (6 comments, addressed in next commit):**
+- **Raw telemetry bloat** (#3): `run_analysis` no longer spreads the telemetry bundle into the
+  response — it returns only compact metadata (`vin`, `dtc_codes`, `pid_count`, priors/tests) plus the
+  computed result. Raw series stay internal to the analyzer.
+- **Restricted analysis stayed authoritative** (#4): removed the `pids` parameter entirely —
+  `run_analysis` always analyzes every available PID so no deciding signal is silently omitted; agent
+  instructions updated to `{vin}`.
+- **Python absence blocked startup** (#2): `resolvePython()` is now lazy (resolved on first
+  `run_analysis`), so a missing Python fails only that tool, not MCP server startup.
+- **Python 2 passed the probe** (#5): the probe now requires the reported major version to be `3`.
+- **Analysis blocked the event loop** (#6): switched from `spawnSync` to async `execFile` with a
+  30 s timeout that kills the child; the MCP event loop is no longer blocked.
+- **smoke.mjs ESM** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`,
+  `"type": "module"`), consistent with the earlier PR #9 dismissal of the same finding.

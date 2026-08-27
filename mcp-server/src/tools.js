@@ -133,21 +133,15 @@ export function registerTools(server, store) {
     {
       title: "Run Bayesian diagnostic analysis",
       description:
-        "TIER 1 - READ-ONLY, SAFE. Runs the sandbox Bayesian analysis library (analyze.py diagnose) on the vehicle's full-resolution telemetry, DTC base-rate priors, and available tests, returning the differential hypothesis ranking (posterior) and a recommended next test (lowest-cost test within 90% of the best info gain). Use this after gathering DTCs + telemetry to get a computed differential instead of reasoning by hand. Optionally restrict which PIDs enter the analysis with pids. Read-only, safe.",
-      inputSchema: {
-        vin: VinSchema,
-        pids: z
-          .array(z.string())
-          .min(1)
-          .max(10)
-          .optional()
-          .describe("PIDs to include in the analysis telemetry; defaults to all available"),
-      },
+        "TIER 1 - READ-ONLY, SAFE. Runs the sandbox Bayesian analysis library (analyze.py diagnose) over the vehicle's complete full-resolution telemetry, DTC base-rate priors, and available tests, returning the differential hypothesis ranking (posterior) and a recommended next test (lowest-cost test within 90% of the best info gain). The analysis always uses every available PID so no deciding signal is silently omitted. Only compact metadata and the computed result are returned (raw telemetry is not). Use this after gathering DTCs + telemetry to get a computed differential instead of reasoning by hand. Read-only, safe.",
+      inputSchema: { vin: VinSchema },
     },
-    async ({ vin, pids }) => {
-      const bundle = store.getAnalysisBundle(vin, pids);
-      const result = runAnalysis(bundle.telemetry, bundle.priors, bundle.tests);
-      return jsonResult({ ...bundle, ...result });
+    async ({ vin }) => {
+      const bundle = store.getAnalysisBundle(vin);
+      const result = await runAnalysis(bundle.telemetry, bundle.priors, bundle.tests);
+      const { telemetry, ...compact } = bundle;
+      compact.pid_count = telemetry.series ? Object.keys(telemetry.series).length : 0;
+      return jsonResult({ ...compact, ...result });
     }
   );
 

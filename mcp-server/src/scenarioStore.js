@@ -140,12 +140,13 @@ export class ScenarioStore {
   }
 
   /**
-   * Compose everything `diagnose()` needs for a VIN: compact telemetry (default
-   * to all PIDs), merged DTC priors, and merged available tests. Priors/tests
-   * are gathered from the scenario's knowledge entries (one file per DTC code),
-   * mirroring eval/run_eval.mjs. Read-only.
+   * Compose everything `diagnose()` needs for a VIN: full-resolution telemetry
+   * (every available PID, so no deciding signal is omitted), merged DTC priors,
+   * and merged available tests. Priors/tests are gathered from the scenario's
+   * knowledge entries (one file per DTC code), mirroring eval/run_eval.mjs.
+   * Read-only.
    */
-  getAnalysisBundle(vin, pids) {
+  getAnalysisBundle(vin) {
     const dtcs = this.getDtcs(vin);
     const codes = new Set();
     for (const d of dtcs) {
@@ -177,18 +178,18 @@ export class ScenarioStore {
       dtc_codes: [...codes],
       // Full-resolution telemetry (matches eval/run_eval.mjs): the analyzer
       // needs the raw 10 Hz discriminators, which downsampling would flatten.
-      telemetry: this.getFullTelemetry(vin, pids),
+      telemetry: this.getFullTelemetry(vin),
       priors,
       tests,
     };
   }
 
   /**
-   * Full-resolution telemetry bundle over the given PIDs (default: all
-   * available), shaped like eval/run_eval.mjs buildTelemetry.
+   * Full-resolution telemetry bundle over every available PID, shaped like
+   * eval/run_eval.mjs buildTelemetry.
    */
-  getFullTelemetry(vin, pids) {
-    const chosen = pids?.length ? pids : this.listPids(vin);
+  getFullTelemetry(vin) {
+    const chosen = this.listPids(vin);
     const series = {};
     for (const pid of chosen) {
       const log = this.getSensorLog(vin, pid);

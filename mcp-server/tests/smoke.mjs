@@ -145,6 +145,10 @@ async function assertAnalysis(vin, expected) {
   const topFamily = familyOf(res.ranked[0].cause);
   ok(topFamily === expFamily, `${vin}: expected top family ${expFamily}, got ${topFamily} (${res.ranked[0].cause})`);
   strictEqual(res.recommended_test?.test_id, expTest, `${vin}: expected recommended test ${expTest}`);
+  strictEqual(res.telemetry, undefined, "run_analysis must not return raw telemetry");
+  strictEqual(res.series, undefined, "run_analysis must not return raw series");
+  ok(Number.isInteger(res.pid_count) && res.pid_count > 0, "run_analysis must report pid_count");
+  ok(Array.isArray(res.dtc_codes), "run_analysis must report dtc_codes");
 }
 await assertAnalysis(VIN, ["vacuum_leak", "smoke_test"]);
 await assertAnalysis(VIN_B, ["maf_fault", "known_good_maf_swap"]);
