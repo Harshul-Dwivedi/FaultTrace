@@ -418,4 +418,28 @@ meta.json ground truth (`canonical_cause` + `expected_test_id`, both eval-only):
   to match.
 - **Python launcher portability** (#8): `FAULTTRACE_PYTHON` / `python3` / `python` fallback with a
   clear error.
+
+**PR #9 Qodo re-review (3 more findings, addressed in `7c4badc`):** the round-1 fix that
+*collapsed* scenario causes onto the 5 canonical families was too aggressive, so cause identity,
+test selection, and partial-telemetry scoring were refined:
+- **Canonicalization erased test choices** (#1): the posterior now **preserves fine-grained DTC
+  cause identity** (`maf_contamination`, `maf_electrical_fault`, ..., `o2_sensor_aging`), instead
+  of collapsing to one family. `bayesian_update` projects the analyzer's canonical-family
+  likelihoods onto those fine-grained priors (via `family_of`/`CAUSE_ALIASES`) and never drops a
+  valid cause, so a differential and info-gain test selection survive. The **family** of the top
+  cause is exposed for eval/display via `family_of()`; `run_eval.mjs` asserts against it. Verified:
+  a P0102-only prior now recommends `known_good_maf_swap` (was `recommended_test: null`).
+- **Partial telemetry disabled scoring** (#2): removed the blanket `has_maf and has_load and has_o2`
+  gate. `sensor_plausibility` now computes each discriminator only from supplied inputs and tags its
+  availability; `likelihoods_from_telemetry` scores each hypothesis gated on its *own* deciding
+  signals (a MAF-only bundle scores `maf_fault`; a fuel-trim+load bundle scores
+  `weak_fuel_delivery`, etc.). Missing non-deciding signals are never converted to negative evidence.
+- **Zero-gain tests got recommended** (#3): a `MIN_GAIN_BITS` (0.05) guard means a test is only
+  recommended when the best expected info gain is meaningfully positive; an all-zero-gain set now
+  yields `recommended_test: null` (the zero-gain `test_gains` rows are still returned for
+  observability).
+
+Eval now: FFT self-test PASS, **3/3 scenarios PASS** (B top family `maf_fault`, test
+`known_good_maf_swap`; C top family `o2_sensor_fault`, test `known_good_o2_swap`). `npm test` in
+mcp-server stays green.
 - **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).
