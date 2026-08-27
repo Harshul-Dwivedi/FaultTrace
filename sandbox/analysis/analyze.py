@@ -461,32 +461,27 @@ def likelihoods_from_telemetry(series):
             vac_score -= 0.2                       # railed O2 argues against a leak
         likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
 
-        # weak_fuel_delivery: trims go negative at high load.
+    # weak_fuel_delivery: trims go negative at high load. Its deciding signals
+    # are trims + load only; MAF/O2 presence is irrelevant, so it is scored on
+    # any trim+load bundle and omitted otherwise.
+    if has_trim and has_load:
         fuel_score = 0.5
         fuel_score += 0.45 if trim_neg_high else 0.0
         fuel_score += -0.15 if trim_rises else 0.0
         likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
 
-        # o2_sensor_fault: O2 railed/flatlined with no switching, healthy MAF.
+    # o2_sensor_fault: O2 railed/flatlined with no switching + healthy MAF. Its
+    # deciding signals are O2 + MAF; trim adjustments are fine-grained evidence
+    # applied only when trim/load telemetry is actually present.
+    if has_maf and has_o2:
         o2_score = 0.5
         o2_score += 0.45 if railed else 0.0
         o2_score += -0.35 if switches else 0.0
-        o2_score += 0.15 if trim_slow else 0.0
-        if smooth and not trim_rises:
-            o2_score += 0.15   # MAF healthy + trims not load-linked -> sensor, not condition
+        if has_trim:
+            o2_score += 0.15 if trim_slow else 0.0
+            if smooth and not trim_rises:
+                o2_score += 0.15   # MAF healthy + trims not load-linked -> sensor, not condition
         likelihoods["o2_sensor_fault"] = max(0.05, min(1.0, o2_score))
-
-    # weak_fuel / vacuum signals also matter when MAF is absent but trims+load
-    # are not (e.g. a fuel-trim+load bundle): still score fuel, and leak via trims.
-    if has_trim and has_load and not has_maf:
-        fuel_score = 0.5
-        fuel_score += 0.45 if trim_neg_high else 0.0
-        fuel_score += -0.15 if trim_rises else 0.0
-        likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
-        if trim_rises:
-            vac_score = 0.5
-            vac_score += 0.35
-            likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
 
     # ignition_fault: misfires present while trims stay near normal.
     if has_misfire and has_trim:
