@@ -442,4 +442,14 @@ test selection, and partial-telemetry scoring were refined:
 Eval now: FFT self-test PASS, **3/3 scenarios PASS** (B top family `maf_fault`, test
 `known_good_maf_swap`; C top family `o2_sensor_fault`, test `known_good_o2_swap`). `npm test` in
 mcp-server stays green.
+
+**PR #9 Qodo re-review round 3 (2 findings, addressed in `f8e86d8`):** two hypothesis gates still
+depended on unrelated sensors; each is now gated strictly on its own deciding signals:
+- **Weak-fuel gate used wrong sensors** (#1): `weak_fuel_delivery` is now scored whenever
+  **trims + load** are present (negative high-load trims), independent of MAF/O2 — it was
+  previously nested under the MAF+trim+O2 gate, so O2 omission suppressed it. Verified: a
+  trim+load bundle with MAF present but O2 absent scores weak_fuel_delivery=0.95.
+- **O2 scoring wrongly required trims** (#2): `o2_sensor_fault` is now gated on **O2 + MAF**
+  alone (railed O2 + healthy MAF); trim adjustments are applied only when trim/load telemetry is
+  present. Verified: a MAF+O2 bundle with no trims scores o2_sensor_fault=0.95.
 - **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).
