@@ -1,7 +1,8 @@
 # FaultTrace — Progress Log
 
-**Updated:** Aug 27, 2026 (Day 4 of hackathon week)
+**Updated:** Aug 27, 2026 (Day 5 of hackathon week)
 **Latest validation session:** `01m0wxh4wq4waprd2dxfs5vkzj` — FULL END-TO-END SCENARIO A RUN COMPLETE (see §7). All acceptance criteria SPEC §9.1–§9.8 demonstrated in one persistent session.
+**Latest delivery:** PR #6/#7/#8 merged; dashboard UI + Qodo remediation (Day 5); sandbox analysis library + eval harness (Day 5).
 
 ---
 
@@ -86,7 +87,10 @@ Incidents fixed along the way:
 - [x] PR #3 (agent definition) — Qodo found 3 bugs → all fixed → merged
 - [x] PR #4 (compact telemetry) — merged
 - [x] PR #5 (`feat/subagent-refactor`) — removed dead JS scaffolding, fixed smoke, dynamic subagent delegation → merged
-- [x] PR #6 (`feat/day4-scenarios-active-diagnosis`) — Scenarios B & C, active diagnosis info-gain, multi-VIN, `get_vehicle_info` → open, all Qodo bugs resolved
+- [x] PR #6 (`feat/day4-scenarios-active-diagnosis`) — Scenarios B & C, active diagnosis info-gain, multi-VIN, `get_vehicle_info` → merged (`cf47d49`)
+- [x] PR #7 (`feat/day5-...`) — Day-5 scenarios/active-diagnosis follow-up → merged (`919d443`)
+- [x] PR #8 (`ui/dashboard-report`) — dashboard investigation UI → merged (`ba98bdb`); Qodo remediation
+      (infoGain bug, failed-load state, refresh staleness, empty-session status, sidebar import) all resolved
 
 ### Proven working end-to-end (Mistral run, Aug 25 afternoon)
 Evidence gathering via MCP → hypothesis enumeration w/ signatures → Bayesian-style ranking →
@@ -98,8 +102,21 @@ wrong displacement assumption — which is exactly why sandbox compute is now en
 ## 2. IN FLIGHT RIGHT NOW
 
 **Day 4 COMPLETE (Aug 27).** Scenarios B & C authored, active diagnosis info-gain implemented,
-`get_vehicle_info` tool added with ground-truth filtering. PR #6 is open with all Qodo bugs
-resolved. Next: merge PR #6, then Day 5 work (evidence-graph UI, cost notes, demo prep).
+`get_vehicle_info` tool added with ground-truth filtering. PR #6 merged.
+
+**Day 5 COMPLETE (Aug 27).** PR #7 (Day 4 scenarios/active-diagnosis) and PR #8 (dashboard UI)
+both merged into `origin/main` (`cf47d49`, `919d443`, `ba98bdb`). Qodo review on PR #8 remediated
+(see §9): fabricated infoGain, failed-load state handling, refresh staleness, empty-session status,
+sidebar import path — all fixed; the `@faulttrace/trueforge` dependency finding was a false positive
+(real package is `@truefoundry/trueforge`; UI uses pure REST).
+
+Sandbox analysis library + eval harness built and verified (see §10):
+- `sandbox/analysis/analyze.py` — deterministic pure-stdlib Python: SPEC §5.3 analysis types,
+  `bayesian_update`, `expected_information_gain` (base-2 bits), `likelihoods_from_telemetry`,
+  and a `diagnose()` + CLI pipeline.
+- `eval/run_eval.mjs` — drives analyze.py against scenarios A/B/C and asserts the top posterior
+  matches each scenario's ground truth (meta.json, eval-only). **3/3 PASS** and each scenario
+  recommends the correct test (smoke_test / known_good_maf_swap / known_good_o2_swap).
 
 <details><summary>Historical notes from Aug 25 (superseded)</summary>
 
@@ -136,13 +153,15 @@ If it asks ask_user_question: same shape, content = your answer text.
 
 1. ~~Watch/complete the in-flight investigation~~ **DONE Aug 26** — full loop incl. both gates
    captured in session `01m0wxh4wq4waprd2dxfs5vkzj`. Remaining: screen-record a fresh clean run
-   (or replay this session) for the Day-2 vertical-slice demo footage.
+   (or replay this session) for the Day-6 vertical-slice demo footage.
 2. ~~Merge PR #3~~ — **DONE**, merged.
 3. ~~Day 3 (subagent fan-out, Bayesian math, differential output)~~ — **DONE**, PR #5 merged.
-4. ~~Day 4 (Scenarios B & C, active diagnosis, multi-VIN)~~ — **DONE**, PR #6 open (all Qodo bugs resolved).
-5. **Day 5**: evidence-graph/investigation view UI, model routing cost notes (single-provider
-   OpenRouter now; note cost per run), fleet extension.
-6. **Day 6**: freeze, record 3-min demo (beat sheet in IMPLEMENTATION.md §14), README polish, submit.
+4. ~~Day 4 (Scenarios B & C, active diagnosis, multi-VIN)~~ — **DONE**, PR #6 & PR #7 merged.
+5. ~~Day 5 (dashboard investigation UI, Qodo remediation)~~ — **DONE**, PR #8 merged.
+6. **Day 5 add-on**: sandbox analysis library (`sandbox/analysis/analyze.py`) + eval harness
+   (`eval/run_eval.mjs`) — **DONE**, 3/3 scenarios pass with correct recommended tests.
+7. **Day 6**: freeze, record 3-min demo (beat sheet in IMPLEMENTATION.md §14), README polish,
+   wire the analysis library into the agent flow end-to-end, submit.
 
 ## 4. Known gotchas
 
@@ -173,6 +192,8 @@ If it asks ask_user_question: same shape, content = your answer text.
 | VIN (Scenario C) | `1FTZX17N9XKA00002` — 2004 Ford F-150, O2 stuck lean |
 | Repo | https://github.com/Harshul-Dwivedi/FaultTrace |
 | PR #6 | https://github.com/Harshul-Dwivedi/FaultTrace/pull/6 |
+| PR #7 | https://github.com/Harshul-Dwivedi/FaultTrace/pull/7 |
+| PR #8 | https://github.com/Harshul-Dwivedi/FaultTrace/pull/8 |
 
 ---
 
@@ -316,5 +337,126 @@ $sid = "01m0wxh4wq4waprd2dxfs5vkzj"
 
 ### PR status
 
-PR #6 (`feat/day4-scenarios-active-diagnosis`): open, all Qodo bugs resolved.
+PR #6 (`feat/day4-scenarios-active-diagnosis`): **merged** (`cf47d49`).
 Commits: `866f367` (initial), `8654fab` (bug fixes), `e4958a6` (ground-truth filter).
+
+---
+
+## 9. Day 5 — Dashboard investigation UI + Qodo remediation (Aug 27)
+
+**What was built:**
+- `fault-trace-ui/` Next.js dashboard rendering TrueForge sessions: active investigation
+  timeline, ranked hypotheses w/ Bayesian posterior, info-gain bar chart per candidate test,
+  vehicle/case metadata, export of the investigation report.
+
+**Qodo review (rule `2937103`) findings on PR #8 — all remediated (commit `b7652e6`):**
+1. **Fabricated infoGain** — replaced fabricated number with real expected entropy reduction
+   (base-2 bits) computed from the actual posterior.
+2. **Failed loads kept prior session** — reset payload + gate `canExport` on idle/loading/error.
+3. **Refresh not reloading** — added `loadNonce` to force a fresh fetch per load/refresh.
+4. **No-turn sessions shown COMPLETE** — explicit `'idle'` status for sessions with no turns.
+5. **Sidebar import path** broken — `../lib/types` → `../../lib/types`.
+
+**Qodo re-review confirmed resolved; two additional bugs fixed (commit `4d4fced`):**
+- `posteriorOf` always divided by 100 (parser stores 0–100 scale) — fixed.
+- `entropy()` used base-10 instead of base-2 (`log2` for bits) — fixed.
+
+**Dismissed as false positive:** `@faulttrace/trueforge` dependency (returns 404 on npm; the real
+package is `@truefoundry/trueforge`; UI uses pure REST) — reply posted on the PR.
+`next build` passes on `ui/dashboard-report`.
+
+- **PR #8 merged** into `origin/main` (`ba98bdb`).
+- `*.tsbuildinfo` gitignored in `fault-trace-ui/.gitignore`.
+
+---
+
+## 10. Day 5 — Sandbox analysis library + eval harness (Aug 27)
+
+**`sandbox/analysis/analyze.py`** — deterministic, pure-stdlib Python (no numpy) so it runs in the
+TrueForge/Daytona sandbox with no install step. Implements the load-bearing SPEC §5.3 analysis
+types and the SPEC §7 Bayesian update:
+
+- `fft_signature`, `cross_correlate`, `sensor_plausibility`, `anomaly_vs_baseline`
+- `bayesian_update(priors, likelihoods)`
+- `expected_information_gain(posteriors, likelihoods)` — base-2, in bits
+- `likelihoods_from_telemetry(series)` — maps ground-truth discriminators onto [0,1] per hypothesis
+- `diagnose(series, priors, tests)` — likelihoods → posterior → ranked differential → recommended test
+- CLI: `python analyze.py telemetry.json priors.json [tests.json]`
+
+**Discriminator tuning verified against real scenario data:**
+- MAF smoothness judged by first-difference **jitter** + **load correlation** (not CV, which is
+  dominated by load range). Scenario A jitter 3.5% / corr 0.9966 vs Scenario B 12.0% / 0.9724 —
+  this is what cleanly separates vacuum_leak from maf_fault.
+- O2 railed (0 crossings, span 0.086, pinned low) + trims not load-linked → o2_sensor_fault,
+  while a leak always drives load-linked trims.
+
+**`eval/run_eval.mjs`** — ESM harness that builds compact telemetry + priors from each scenario,
+drives analyze.py, and asserts both the top posterior **and** the recommended test match
+meta.json ground truth (`canonical_cause` + `expected_test_id`, both eval-only):
+
+- Scenario A → vacuum_leak (49.3%) — recommended `smoke_test`
+- Scenario B → maf_fault (75.3%) — recommended `known_good_maf_swap`
+- Scenario C → o2_sensor_fault (83.7%) — recommended `known_good_o2_swap`
+- Plus an `fft_signature` self-test (in/out-of-band sinusoids across window lengths).
+- **Result: FFT self-test PASS, 3/3 scenarios PASS**, exit 0. Deterministic.
+  Run with: `node eval/run_eval.mjs` (interpreter via `FAULTTRACE_PYTHON`, else `python3`/`python`).
+
+**PR #9 Qodo remediation (8 comments, all addressed):**
+- **fft_signature scaling** (#4): Parseval-consistent normalization (ratio now ~0.5 for a pure
+  in-band sine regardless of `n`; verified by the sinusoid self-test).
+- **Zero posteriors for scenario-specific causes** (#2): `CAUSE_ALIASES` collapse
+  `maf_contamination`/`maf_electrical_fault`/`o2_sensor_aging`/`o2_heater_fault`/... onto the
+  canonical families, so P0102/P0133-only knowledge now diagnoses correctly (B→maf_fault 1.0,
+  C→o2_sensor_fault 1.0) instead of all-zero.
+- **Missing data became evidence** (#3): hypotheses are only scored when their deciding signals
+  are present; absent data -> the cause is omitted -> posterior stays at prior (no fabricated
+  likelihood / penalty).
+- **Low-cost preference** (#7): `diagnose` picks the cheapest test within 90% of the best
+  information gain (explicit low<medium<high ordering, deterministic tie-break).
+- **Eval metadata truth** (#5) + **recommendations asserted** (#6): verdicts now read
+  `canonical_cause`/`expected_test_id` from eval-only metadata and require the recommended test
+  to match.
+- **Python launcher portability** (#8): `FAULTTRACE_PYTHON` / `python3` / `python` fallback with a
+  clear error.
+
+**PR #9 Qodo re-review (3 more findings, addressed in `7c4badc`):** the round-1 fix that
+*collapsed* scenario causes onto the 5 canonical families was too aggressive, so cause identity,
+test selection, and partial-telemetry scoring were refined:
+- **Canonicalization erased test choices** (#1): the posterior now **preserves fine-grained DTC
+  cause identity** (`maf_contamination`, `maf_electrical_fault`, ..., `o2_sensor_aging`), instead
+  of collapsing to one family. `bayesian_update` projects the analyzer's canonical-family
+  likelihoods onto those fine-grained priors (via `family_of`/`CAUSE_ALIASES`) and never drops a
+  valid cause, so a differential and info-gain test selection survive. The **family** of the top
+  cause is exposed for eval/display via `family_of()`; `run_eval.mjs` asserts against it. Verified:
+  a P0102-only prior now recommends `known_good_maf_swap` (was `recommended_test: null`).
+- **Partial telemetry disabled scoring** (#2): removed the blanket `has_maf and has_load and has_o2`
+  gate. `sensor_plausibility` now computes each discriminator only from supplied inputs and tags its
+  availability; `likelihoods_from_telemetry` scores each hypothesis gated on its *own* deciding
+  signals (a MAF-only bundle scores `maf_fault`; a fuel-trim+load bundle scores
+  `weak_fuel_delivery`, etc.). Missing non-deciding signals are never converted to negative evidence.
+- **Zero-gain tests got recommended** (#3): a `MIN_GAIN_BITS` (0.05) guard means a test is only
+  recommended when the best expected info gain is meaningfully positive; an all-zero-gain set now
+  yields `recommended_test: null` (the zero-gain `test_gains` rows are still returned for
+  observability).
+
+Eval now: FFT self-test PASS, **3/3 scenarios PASS** (B top family `maf_fault`, test
+`known_good_maf_swap`; C top family `o2_sensor_fault`, test `known_good_o2_swap`). `npm test` in
+mcp-server stays green.
+
+**PR #9 Qodo re-review round 3 (2 findings, addressed in `f8e86d8`):** two hypothesis gates still
+depended on unrelated sensors; each is now gated strictly on its own deciding signals:
+- **Weak-fuel gate used wrong sensors** (#1): `weak_fuel_delivery` is now scored whenever
+  **trims + load** are present (negative high-load trims), independent of MAF/O2 — it was
+  previously nested under the MAF+trim+O2 gate, so O2 omission suppressed it. Verified: a
+  trim+load bundle with MAF present but O2 absent scores weak_fuel_delivery=0.95.
+- **O2 scoring wrongly required trims** (#2): `o2_sensor_fault` is now gated on **O2 + MAF**
+  alone (railed O2 + healthy MAF); trim adjustments are applied only when trim/load telemetry is
+  present. Verified: a MAF+O2 bundle with no trims scores o2_sensor_fault=0.95.
+
+**PR #9 Qodo re-review round 4 (1 finding, addressed in `a10aa9b`):**
+- **Erratic MAF supported O2 fault**: the O2 gate required only MAF *presence*, so railed O2 plus a
+  demonstrably faulty (erratic) MAF could score `o2_sensor_fault` high on contradictory evidence.
+  The healthy-MAF discriminator is now scored explicitly: an `erratic` MAF is penalized (-0.4), a
+  `smooth` MAF is rewarded (+0.15), others stay neutral. Verified: railed O2 + smooth MAF → 1.0,
+  railed O2 + erratic MAF → 0.55 (was 0.95).
+- **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).

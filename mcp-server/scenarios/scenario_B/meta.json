@@ -5,6 +5,8 @@
   "description": "MAF sensor contamination causing false lean readings. The hot-wire element is coated with oil/debris, under-reporting airflow by 25-35% with erratic spikes. ECU over-fuels to compensate, causing elevated trims and occasional misfires under load.",
   "ground_truth_eval_only": {
     "root_cause": "MAF sensor contamination (hot-wire element coated with oil/debris)",
+    "canonical_cause": "maf_fault",
+    "expected_test_id": "known_good_maf_swap",
     "discriminators": {
       "maf_fault": "MAF readings are erratic with high variance and occasional wild spikes; MAF does not correlate smoothly with RPM/load. The coefficient of variation of MAF residuals vs. expected MAF is much higher than a healthy sensor.",
       "vacuum_leak": "MAF reads low but tracks RPM/load smoothly with a consistent proportional offset; no erratic spikes.",

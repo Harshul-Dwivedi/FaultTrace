@@ -5,6 +5,8 @@
   "description": "Lean misfire under load. Unmetered air enters through a cracked brake-booster vacuum hose; ECU compensates with rising fuel trims until misfires appear.",
   "ground_truth_eval_only": {
     "root_cause": "Vacuum leak (cracked brake booster hose)",
+    "canonical_cause": "vacuum_leak",
+    "expected_test_id": "smoke_test",
     "discriminators": {
       "vacuum_leak": "Fuel trims climb strongly with engine load; MAF reads consistently ~10-14% below derived airflow but tracks rpm/load smoothly; O2 leans out under load.",
       "maf_fault": "MAF reading erratic or implausibly inconsistent with rpm/load, not a smooth proportional offset.",
