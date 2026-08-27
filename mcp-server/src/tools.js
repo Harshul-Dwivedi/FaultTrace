@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { runAnalysis } from "./analysisRunner.js";
 
 const VinSchema = z.string().min(5).describe("Vehicle Identification Number");
 const HumanApprovalSchema = z
@@ -125,6 +126,29 @@ export function registerTools(server, store) {
       },
     },
     async ({ code, vin }) => jsonResult(store.lookupKnowledge(code.toUpperCase(), vin))
+  );
+
+  server.registerTool(
+    "run_analysis",
+    {
+      title: "Run Bayesian diagnostic analysis",
+      description:
+        "TIER 1 - READ-ONLY, SAFE. Runs the sandbox Bayesian analysis library (analyze.py diagnose) on the vehicle's full-resolution telemetry, DTC base-rate priors, and available tests, returning the differential hypothesis ranking (posterior) and a recommended next test (lowest-cost test within 90% of the best info gain). Use this after gathering DTCs + telemetry to get a computed differential instead of reasoning by hand. Optionally restrict which PIDs enter the analysis with pids. Read-only, safe.",
+      inputSchema: {
+        vin: VinSchema,
+        pids: z
+          .array(z.string())
+          .min(1)
+          .max(10)
+          .optional()
+          .describe("PIDs to include in the analysis telemetry; defaults to all available"),
+      },
+    },
+    async ({ vin, pids }) => {
+      const bundle = store.getAnalysisBundle(vin, pids);
+      const result = runAnalysis(bundle.telemetry, bundle.priors, bundle.tests);
+      return jsonResult({ ...bundle, ...result });
+    }
   );
 
   server.registerTool(

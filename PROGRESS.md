@@ -460,3 +460,30 @@ depended on unrelated sensors; each is now gated strictly on its own deciding si
   `smooth` MAF is rewarded (+0.15), others stay neutral. Verified: railed O2 + smooth MAF → 1.0,
   railed O2 + erratic MAF → 0.55 (was 0.95).
 - **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).
+
+## 11. Day 5 — PR #10: wire the sandbox analysis into the MCP/agent flow (Aug 27)
+
+The analysis library existed (`sandbox/analysis/analyze.py` + `eval/run_eval.mjs`) but nothing invoked
+it from the agent flow — the agent was told to "write its own analysis code." PR #10 makes
+`run_analysis` a first-class Tier-1 read tool so the agent gets a computed Bayesian differential
+end-to-end:
+
+- **`mcp-server/src/analysisRunner.js`** (new): resolves a Python 3 interpreter
+  (`FAULTTRACE_PYTHON` / `python3` / `python`), writes temp JSON, and runs
+  `sandbox/analysis/analyze.py` `diagnose(telemetry, priors, tests)`, returning the parsed result.
+- **`ScenarioStore.getAnalysisBundle(vin, pids)`** + `getFullTelemetry`: composes the
+  **full-resolution** telemetry (raw 10 Hz — downsampling flattened the MAF-jitter / O2-switching
+  discriminators), merged DTC priors, and merged available tests from the scenario knowledge dir
+  (mirroring `eval/run_eval.mjs`).
+- **`tools.js` → `run_analysis`** (Tier-1, read-only): `{vin, pids?}` returns telemetry metadata +
+  DTC codes + `likelihoods` + `posterior` + `ranked` differential + `test_gains` +
+  `recommended_test`. Verified against all three scenarios (top family / recommended test match
+  ground truth):
+  - A → vacuum_leak / smoke_test; B → maf_fault / known_good_maf_swap; C → o2_sensor_fault /
+    known_good_o2_swap.
+- **Agent wiring**: `agent/faulttrace-investigator.agent.json` instructions updated to call
+  `run_analysis` for the computed differential + recommended test (custom sandbox code only for
+  uncovered checks), and the live TrueForge registry agent (`01m0wf4c58wkgbkmw9dyjm9shw`) synced
+  via `PUT /api/v1/agents/{id}` `{"manifest": {...}}`.
+- **Tests**: `smoke.mjs` asserts `run_analysis` returns the correct top-cause family and recommended
+  test for A/B/C; npm test green (13 tools), eval still 3/3 PASS.

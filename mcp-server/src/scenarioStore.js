@@ -139,6 +139,64 @@ export class ScenarioStore {
     throw new Error(`No knowledge base entry for ${safeCode}`);
   }
 
+  /**
+   * Compose everything `diagnose()` needs for a VIN: compact telemetry (default
+   * to all PIDs), merged DTC priors, and merged available tests. Priors/tests
+   * are gathered from the scenario's knowledge entries (one file per DTC code),
+   * mirroring eval/run_eval.mjs. Read-only.
+   */
+  getAnalysisBundle(vin, pids) {
+    const dtcs = this.getDtcs(vin);
+    const codes = new Set();
+    for (const d of dtcs) {
+      const code = String(d.code || "");
+      if (/^P[0-9]{4}$/.test(code)) codes.add(code);
+    }
+
+    const dir = this.resolveScenario(vin);
+    const kdir = join(dir, "knowledge");
+    const priors = {};
+    const tests = [];
+    const files = existsSync(kdir) ? readdirSafe(kdir).filter((f) => f.endsWith(".json")) : [];
+    for (const f of files) {
+      const kb = this.loadJson(join(kdir, f), null);
+      if (!kb) continue;
+      for (const c of kb.common_causes ?? []) {
+        if (c && c.cause) priors[c.cause] = Math.max(priors[c.cause] ?? 0, c.prior ?? 0);
+      }
+      for (const t of kb.available_tests ?? []) {
+        if (t && t.test_id && !tests.some((x) => x.test_id === t.test_id)) tests.push(t);
+      }
+    }
+    const tot = Object.values(priors).reduce((a, b) => a + b, 0);
+    if (tot > 0) {
+      for (const k of Object.keys(priors)) priors[k] = Number((priors[k] / tot).toFixed(6));
+    }
+    return {
+      vin,
+      dtc_codes: [...codes],
+      // Full-resolution telemetry (matches eval/run_eval.mjs): the analyzer
+      // needs the raw 10 Hz discriminators, which downsampling would flatten.
+      telemetry: this.getFullTelemetry(vin, pids),
+      priors,
+      tests,
+    };
+  }
+
+  /**
+   * Full-resolution telemetry bundle over the given PIDs (default: all
+   * available), shaped like eval/run_eval.mjs buildTelemetry.
+   */
+  getFullTelemetry(vin, pids) {
+    const chosen = pids?.length ? pids : this.listPids(vin);
+    const series = {};
+    for (const pid of chosen) {
+      const log = this.getSensorLog(vin, pid);
+      series[log.pid] = { pid: log.pid, unit: log.unit, value: log.value };
+    }
+    return { vin, sample_period_seconds: null, series };
+  }
+
   requestMeasurement(vin, measurementSpec, approvedByHuman) {
     requireApproval(approvedByHuman, "request_measurement", TIERS.DIAGNOSTIC_ACTION);
     const dir = this.resolveScenario(vin);
