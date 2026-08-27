@@ -124,6 +124,36 @@ ok(frameC.o2_voltage < 0.1, "scenario C O2 should be stuck lean");
 const kbP0133 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0133", vin: VIN_C } }));
 ok(kbP0133.common_causes.length >= 3, "P0133 knowledge must have causes");
 
+// run_analysis: sandbox Bayesian differential + recommended test per scenario.
+const CANONICAL_A = { vacuum_leak: "smoke_test" };
+const CANONICAL_B = { maf_fault: "known_good_maf_swap" };
+const CANONICAL_C = { o2_sensor_fault: "known_good_o2_swap" };
+const FAMILY = {
+  maf_fault: ["maf_contamination", "maf_electrical_fault", "maf_ground_fault", "air_intake_restrict", "ecu_fault"],
+  o2_sensor_fault: ["o2_sensor_contamination", "o2_sensor_aging", "o2_heater_fault"],
+};
+const FAMILY_CAUSES = new Set(["vacuum_leak", "maf_fault", "weak_fuel_delivery", "ignition_fault", "o2_sensor_fault"]);
+function familyOf(cause) {
+  if (FAMILY_CAUSES.has(cause)) return cause;
+  for (const [fam, aliases] of Object.entries(FAMILY)) if (aliases.includes(cause)) return fam;
+  return cause;
+}
+async function assertAnalysis(vin, expected) {
+  const [expFamily, expTest] = expected;
+  const res = text(await client.callTool({ name: "run_analysis", arguments: { vin } }));
+  ok(res.ranked && res.ranked.length >= 2, `analysis must rank >= 2 hypotheses`);
+  const topFamily = familyOf(res.ranked[0].cause);
+  ok(topFamily === expFamily, `${vin}: expected top family ${expFamily}, got ${topFamily} (${res.ranked[0].cause})`);
+  strictEqual(res.recommended_test?.test_id, expTest, `${vin}: expected recommended test ${expTest}`);
+  strictEqual(res.telemetry, undefined, "run_analysis must not return raw telemetry");
+  strictEqual(res.series, undefined, "run_analysis must not return raw series");
+  ok(Number.isInteger(res.pid_count) && res.pid_count > 0, "run_analysis must report pid_count");
+  ok(Array.isArray(res.dtc_codes), "run_analysis must report dtc_codes");
+}
+await assertAnalysis(VIN, ["vacuum_leak", "smoke_test"]);
+await assertAnalysis(VIN_B, ["maf_fault", "known_good_maf_swap"]);
+await assertAnalysis(VIN_C, ["o2_sensor_fault", "known_good_o2_swap"]);
+
 // get_vehicle_info must not leak ground truth
 const infoA = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN } }));
 ok(infoA.vehicle, "vehicle info must include vehicle description");

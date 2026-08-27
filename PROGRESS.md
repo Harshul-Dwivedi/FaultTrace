@@ -460,3 +460,51 @@ depended on unrelated sensors; each is now gated strictly on its own deciding si
   `smooth` MAF is rewarded (+0.15), others stay neutral. Verified: railed O2 + smooth MAF → 1.0,
   railed O2 + erratic MAF → 0.55 (was 0.95).
 - **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).
+
+## 11. Day 5 — PR #10: wire the sandbox analysis into the MCP/agent flow (Aug 27)
+
+The analysis library existed (`sandbox/analysis/analyze.py` + `eval/run_eval.mjs`) but nothing invoked
+it from the agent flow — the agent was told to "write its own analysis code." PR #10 makes
+`run_analysis` a first-class Tier-1 read tool so the agent gets a computed Bayesian differential
+end-to-end:
+
+- **`mcp-server/src/analysisRunner.js`** (new): resolves a Python 3 interpreter
+  (`FAULTTRACE_PYTHON` / `python3` / `python`), writes temp JSON, and runs
+  `sandbox/analysis/analyze.py` `diagnose(telemetry, priors, tests)`, returning the parsed result.
+- **`ScenarioStore.getAnalysisBundle(vin, pids)`** + `getFullTelemetry`: composes the
+  **full-resolution** telemetry (raw 10 Hz — downsampling flattened the MAF-jitter / O2-switching
+  discriminators), merged DTC priors, and merged available tests from the scenario knowledge dir
+  (mirroring `eval/run_eval.mjs`).
+- **`tools.js` → `run_analysis`** (Tier-1, read-only): `{vin, pids?}` returns telemetry metadata +
+  DTC codes + `likelihoods` + `posterior` + `ranked` differential + `test_gains` +
+  `recommended_test`. Verified against all three scenarios (top family / recommended test match
+  ground truth):
+  - A → vacuum_leak / smoke_test; B → maf_fault / known_good_maf_swap; C → o2_sensor_fault /
+    known_good_o2_swap.
+- **Agent wiring**: `agent/faulttrace-investigator.agent.json` instructions updated to call
+  `run_analysis` for the computed differential + recommended test (custom sandbox code only for
+  uncovered checks), and the live TrueForge registry agent (`01m0wf4c58wkgbkmw9dyjm9shw`) synced
+  via `PUT /api/v1/agents/{id}` `{"manifest": {...}}`.
+- **Tests**: `smoke.mjs` asserts `run_analysis` returns the correct top-cause family and recommended
+  test for A/B/C; npm test green (13 tools), eval still 3/3 PASS.
+
+**PR #10 Qodo remediation (6 comments, addressed in next commit):**
+- **Raw telemetry bloat** (#3): `run_analysis` no longer spreads the telemetry bundle into the
+  response — it returns only compact metadata (`vin`, `dtc_codes`, `pid_count`, priors/tests) plus the
+  computed result. Raw series stay internal to the analyzer.
+- **Restricted analysis stayed authoritative** (#4): removed the `pids` parameter entirely —
+  `run_analysis` always analyzes every available PID so no deciding signal is silently omitted; agent
+  instructions updated to `{vin}`.
+- **Python absence blocked startup** (#2): `resolvePython()` is now lazy (resolved on first
+  `run_analysis`), so a missing Python fails only that tool, not MCP server startup.
+- **Python 2 passed the probe** (#5): the probe now requires the reported major version to be `3`.
+- **Analysis blocked the event loop** (#6): switched from `spawnSync` to async `execFile` with a
+  30 s timeout that kills the child; the MCP event loop is no longer blocked.
+- **smoke.mjs ESM** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`,
+  `"type": "module"`), consistent with the earlier PR #9 dismissal of the same finding.
+- **Rerun discards subagent evidence** (round-2): agent instructions previously said to fold subagent
+  likelihoods into the posterior then re-run `run_analysis` to "confirm" — but `run_analysis` only
+  takes a VIN and recomputes from stored telemetry/priors, so that confirmation was meaningless.
+  Fixed by keeping `run_analysis` the **single authoritative** source of the posterior + recommended
+  test: subagents contribute supporting/contradictory *evidence* only and must not alter the
+  recommended test. Live registry agent synced.
