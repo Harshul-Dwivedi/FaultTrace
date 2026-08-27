@@ -452,4 +452,11 @@ depended on unrelated sensors; each is now gated strictly on its own deciding si
 - **O2 scoring wrongly required trims** (#2): `o2_sensor_fault` is now gated on **O2 + MAF**
   alone (railed O2 + healthy MAF); trim adjustments are applied only when trim/load telemetry is
   present. Verified: a MAF+O2 bundle with no trims scores o2_sensor_fault=0.95.
+
+**PR #9 Qodo re-review round 4 (1 finding, addressed in `a10aa9b`):**
+- **Erratic MAF supported O2 fault**: the O2 gate required only MAF *presence*, so railed O2 plus a
+  demonstrably faulty (erratic) MAF could score `o2_sensor_fault` high on contradictory evidence.
+  The healthy-MAF discriminator is now scored explicitly: an `erratic` MAF is penalized (-0.4), a
+  `smooth` MAF is rewarded (+0.15), others stay neutral. Verified: railed O2 + smooth MAF → 1.0,
+  railed O2 + erratic MAF → 0.55 (was 0.95).
 - **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).
