@@ -1,7 +1,7 @@
 # FaultTrace — Progress Log
 
-**Updated:** Aug 26, 2026 (Day 3 of hackathon week)
-**Latest validation session:** `01m0wxh4wq4waprd2dxfs5vkzj` — **FULL END-TO-END SCENARIO A RUN COMPLETE** (see §7). All acceptance criteria SPEC §9.1–§9.8 demonstrated in one persistent session.
+**Updated:** Aug 27, 2026 (Day 4 of hackathon week)
+**Latest validation session:** `01m0wxh4wq4waprd2dxfs5vkzj` — FULL END-TO-END SCENARIO A RUN COMPLETE (see §7). All acceptance criteria SPEC §9.1–§9.8 demonstrated in one persistent session.
 
 ---
 
@@ -48,17 +48,20 @@ Incidents fixed along the way:
 | groq | ⚠️ connected but UNUSABLE — free tier 8K tokens/min < our ~20-35K prompt | do not use |
 
 ### Mock vehicle MCP server
-- [x] Built in `mcp-server/` — 10 tools (7 Tier-1 reads + request_measurement T2 + clear_codes/order_part T3)
+- [x] Built in `mcp-server/` — 12 tools (10 Tier-1 reads + request_measurement T2 + clear_codes/order_part T3)
 - [x] Tier-2/3 tools REQUIRE `approved_by_human=true` arg; refuse otherwise (defense-in-depth)
 - [x] Serves **HTTP transport** on http://localhost:9090/mcp (TrueForge has NO stdio support).
       Start: `cd mcp-server && npm run start:http`
 - [x] Registered in TrueForge as remote MCP server named `faulttrace-vehicle`
-- [x] Scenario A fixtures: P0171+P0300 lean misfire / vacuum leak (ground truth in meta.json,
-      eval-only, never exposed via tools). Followup measurements incl. smoking-gun clamp test.
-      Regenerate data: `npm run generate:data` (seed 1337, deterministic)
-- [x] Tests green: `npm test` (smoke + stdio), `node tests/http.mjs`
+- [x] 3 scenarios with deterministic seeded telemetry (seed 1337/2749/5891):
+      - Scenario A: 2003 Honda Accord — vacuum leak (booster hose), P0171+P0300
+      - Scenario B: 2005 Toyota Camry — MAF contamination, P0171+P0102+P0300
+      - Scenario C: 2004 Ford F-150 5.4L — O2 stuck lean, P0171+P0133
+- [x] VIN registry maps 3 VINs to scenario directories (vins.json)
+- [x] `get_vehicle_info` tool returns safe vehicle specs (ground_truth_eval_only filtered out)
+- [x] `lookup_dtc_knowledge` is VIN-aware — each scenario gets scenario-specific priors
+- [x] Tests green: `npm test` (smoke.mjs validates 12 tools, 3 scenarios, ground-truth filtering)
 - [x] Compact telemetry: `get_compact_telemetry` returns deterministic synchronized 1 Hz data
-      (about 5 KB for the seven Scenario A PIDs), keeping sandbox analysis out of the model context.
 
 ### Sandbox
 - [x] Daytona provider configured in TrueForge Settings → Sandbox (status: ready, key stored server-side)
@@ -68,18 +71,22 @@ Incidents fixed along the way:
 - [x] `faulttrace-investigator` created in TrueForge (id `01m0wf4c58wkgbkmw9dyjm9shw`),
       model = openrouter/stealth-ox-alpha
 - [x] Definition version-controlled at `agent/faulttrace-investigator.agent.json`
-- [x] Instructions include ENGINE FACTS (2.4L/2400cc, VE 0.55-0.75) to prevent arithmetic drift
-- [x] Approval flow FIXED per Qodo finding: propose gated calls with approved_by_human=true;
+- [x] Instructions include active diagnosis with Bayesian information gain formula for test selection
+- [x] Instructions include dynamic subagent delegation (per-hypothesis fan-out)
+- [x] Instructions support multiple vehicles via VIN-driven identification (not Honda-specific)
+- [x] Approval flow: propose gated calls with approved_by_human=true;
       harness pauses BEFORE execution; approved args execute verbatim
 - [x] Harness-level gates: require_approval_for_tools = [request_measurement, clear_codes, order_part]
-- [x] Live-agent instructions synced with exact MCP argument names, compact-telemetry usage,
+- [x] Agent instructions synced with exact MCP argument names, compact-telemetry usage,
       and sandbox-computed Bayesian normalization.
 
 ### Git / review trail
-- [x] PR #1 (docs skeleton) merged
-- [x] PR #2 (MCP server) — Qodo found 6 bugs → all fixed → verified resolved → merged
-- [x] PR #3 (agent definition) — Qodo found 3 bugs (enable_tools array, sandbox disabled vs spec,
-      approval deadlock) → all fixed, pushed, awaiting re-review → MERGE WHEN CLEAN
+- [x] PR #1 (docs skeleton) — merged
+- [x] PR #2 (MCP server) — Qodo found 6 bugs → all fixed → merged
+- [x] PR #3 (agent definition) — Qodo found 3 bugs → all fixed → merged
+- [x] PR #4 (compact telemetry) — merged
+- [x] PR #5 (`feat/subagent-refactor`) — removed dead JS scaffolding, fixed smoke, dynamic subagent delegation → merged
+- [x] PR #6 (`feat/day4-scenarios-active-diagnosis`) — Scenarios B & C, active diagnosis info-gain, multi-VIN, `get_vehicle_info` → open, all Qodo bugs resolved
 
 ### Proven working end-to-end (Mistral run, Aug 25 afternoon)
 Evidence gathering via MCP → hypothesis enumeration w/ signatures → Bayesian-style ranking →
@@ -90,8 +97,9 @@ wrong displacement assumption — which is exactly why sandbox compute is now en
 
 ## 2. IN FLIGHT RIGHT NOW
 
-**RESOLVED (Aug 26).** The compact-telemetry session completed end-to-end after resuming on
-OpenRouter only — see §0 and §7. Nothing is in flight; next work starts Day-3 items below.
+**Day 4 COMPLETE (Aug 27).** Scenarios B & C authored, active diagnosis info-gain implemented,
+`get_vehicle_info` tool added with ground-truth filtering. PR #6 is open with all Qodo bugs
+resolved. Next: merge PR #6, then Day 5 work (evidence-graph UI, cost notes, demo prep).
 
 <details><summary>Historical notes from Aug 25 (superseded)</summary>
 
@@ -129,13 +137,9 @@ If it asks ask_user_question: same shape, content = your answer text.
 1. ~~Watch/complete the in-flight investigation~~ **DONE Aug 26** — full loop incl. both gates
    captured in session `01m0wxh4wq4waprd2dxfs5vkzj`. Remaining: screen-record a fresh clean run
    (or replay this session) for the Day-2 vertical-slice demo footage.
-2. ~~Merge PR #3~~ — verify Qodo re-review shows Bugs (0), then merge: https://github.com/Harshul-Dwivedi/FaultTrace/pull/3
-3. **Day 3 (today, per PLAN.md)**: per-hypothesis subagent fan-out, real Bayesian confidence
-   math wired as sandbox computation (this run computed it in-sandbox already — formalize),
-   differential output with supporting+contradictory evidence (achieved ad hoc — make it the
-   standard output shape), second Tier-3 gate demo (achieved — re-verify after refactor).
-4. **Day 4**: Scenarios B (MAF fault) & C (O2 sensor lying), active-diagnosis info-gain loop,
-   persistence across reconnects (already proven — session survived overnight).
+2. ~~Merge PR #3~~ — **DONE**, merged.
+3. ~~Day 3 (subagent fan-out, Bayesian math, differential output)~~ — **DONE**, PR #5 merged.
+4. ~~Day 4 (Scenarios B & C, active diagnosis, multi-VIN)~~ — **DONE**, PR #6 open (all Qodo bugs resolved).
 5. **Day 5**: evidence-graph/investigation view UI, model routing cost notes (single-provider
    OpenRouter now; note cost per run), fleet extension.
 6. **Day 6**: freeze, record 3-min demo (beat sheet in IMPLEMENTATION.md §14), README polish, submit.
@@ -154,18 +158,21 @@ If it asks ask_user_question: same shape, content = your answer text.
 - Gemini Pro preview = zero free quota. Only flash matters on free tier.
 - If a turn errors mid-loop due to 429, wait 60-90s then send a continuation message ("continue")
   on the SAME session rather than starting over.
-- Ground truth for scenarios lives in mcp-server/scenarios/scenario_A/meta.json — NEVER feed to agent;
-  used only by eval scripts.
+- Ground truth for scenarios lives in mcp-server/scenarios/scenario_*/meta.json — NEVER exposed
+  through MCP tools. `get_vehicle_info` filters out `ground_truth_eval_only` and `notes`.
 
 ## 5. Key IDs cheat-sheet
 
 | Thing | ID |
 | --- | --- |
 | Investigator agent | `01m0wf4c58wkgbkmw9dyjm9shw` |
-| Latest session | `01m0wxh4wq4waprd2dxfs5vkzj` (**complete E2E Scenario A run**) |
+| Latest session | `01m0wxh4wq4waprd2dxfs5vkzj` (complete E2E Scenario A run) |
 | MCP server name | `faulttrace-vehicle` |
-| VIN (Scenario A) | `1HGCM82633A004352` |
+| VIN (Scenario A) | `1HGCM82633A004352` — 2003 Honda Accord, vacuum leak |
+| VIN (Scenario B) | `2T1BURHE0JC000001` — 2005 Toyota Camry, MAF contamination |
+| VIN (Scenario C) | `1FTZX17N9XKA00002` — 2004 Ford F-150, O2 stuck lean |
 | Repo | https://github.com/Harshul-Dwivedi/FaultTrace |
+| PR #6 | https://github.com/Harshul-Dwivedi/FaultTrace/pull/6 |
 
 ---
 
@@ -266,3 +273,48 @@ $sid = "01m0wxh4wq4waprd2dxfs5vkzj"
 2. Day-3 items per PLAN.md (subagent fan-out, formalize Bayesian + differential output shape).
 3. Screen-record a fresh clean Scenario A run for demo footage (this session's transcript is
    the fallback narrative if a live re-run misbehaves).
+
+---
+
+## 8. Day 4 — Scenarios B & C, active diagnosis (Aug 26–27)
+
+### What was built
+
+**Scenarios B & C authored and verified:**
+- Scenario B: 2005 Toyota Camry LE 2.4L, MAF contamination — 600 samples @ 10 Hz (seed 2749).
+  Erratic MAF under-reporting, high trims proportional to MAF error, random misfires under load.
+- Scenario C: 2004 Ford F-150 XLT 5.4L V8, O2 sensor stuck lean — 600 samples @ 10 Hz (seed 5891).
+  Healthy MAF, railed-lean O2 voltage, gradual fuel-trim integration, limited misfires.
+
+**Knowledge base expanded:**
+- 7 DTC knowledge files across 3 scenarios (P0171×3, P0300×2, P0102, P0133).
+- Each file includes `available_tests` with expected likelihoods and `common_causes` with priors.
+- All `available_tests[].test_id` keys match followup measurement keys per scenario.
+- All `expected_likelihood` keys match `common_causes[].cause` keys (validated by smoke test).
+
+**Agent instructions updated:**
+- Active diagnosis with full Bayesian expected information gain formula for test selection.
+- Dynamic subagent delegation enabled (per-hypothesis fan-out).
+- Generic vehicle support via VIN-driven identification (not Honda-specific).
+- `get_vehicle_info` tool for displacement/MKP before MAF plausibility calculations.
+
+**MCP server expanded to 12 tools:**
+- Added `get_vehicle_info` (returns safe specs, filters ground truth).
+- `lookup_dtc_knowledge` made VIN-aware — scenario-specific priors.
+- Generators fixed: `phaseAt()` → `profile()` so RPM/load are populated (no nulls).
+
+### Qodo review bugs resolved
+
+| Bug | Fix |
+|---|---|
+| Null telemetry | `profile(ts)` instead of `phaseAt(ts)` — all channels populated |
+| Knowledge ignores VIN | `lookupKnowledge(code, vin)` resolves from scenario first |
+| Likelihood key mismatch | Aligned keys across P0102, P0133, P0300 |
+| Test IDs don't match followup | Aligned `test_id` with actual measurement keys |
+| Vehicle specs inaccessible | Added `get_vehicle_info` MCP tool |
+| Ground truth leaked | Filter `ground_truth_eval_only` and `notes` from response |
+
+### PR status
+
+PR #6 (`feat/day4-scenarios-active-diagnosis`): open, all Qodo bugs resolved.
+Commits: `866f367` (initial), `8654fab` (bug fixes), `e4958a6` (ground-truth filter).
