@@ -1,0 +1,17 @@
+{
+  "scenario_id": "scenario_C",
+  "vin": "1FTZX17N9XKA00002",
+  "vehicle": "2004 Ford F-150 XLT 5.4L V8",
+  "description": "Upstream O2 sensor (Bank 1 Sensor 1) has failed, stuck railed lean at ~0.04V with no switching. The actual engine mixture is correct, but the ECU sees 'lean' and adds fuel via closed-loop trim correction. Trims climb gradually as ECU integrates the false lean signal. Engine runs slightly rich due to the ECU's over-compensation, but no significant driveability issues.",
+  "ground_truth_eval_only": {
+    "root_cause": "O2 sensor failure — upstream sensor (B1S1) stuck railed lean",
+    "discriminators": {
+      "o2_sensor_fault": "O2 voltage flatlined near 0V with NO switching pattern; fuel trims climb gradually (ECU integrating false lean signal); MAF reads correctly and tracks RPM/load smoothly.",
+      "vacuum_leak": "MAF reads low with consistent offset; trims rise with load immediately, not gradually over time.",
+      "maf_fault": "MAF readings erratic; trims proportional to MAF error, not a slow integration.",
+      "weak_fuel_delivery": "Trims go NEGATIVE at high load; fuel pressure drops under demand.",
+      "ignition_fault": "Misfires on specific cylinders; trims near normal."
+    }
+  },
+  "notes": "Ground truth for evaluation only; never exposed through MCP tools."
+}

@@ -1,0 +1,7 @@
+[
+  { "date": "2026-02-18", "odometer_km": 98700, "work": "Oil change + filter", "parts": ["5W-20 synthetic", "Motorcraft FL-500S"], "notes": "Normal service, all fluids checked" },
+  { "date": "2025-10-05", "odometer_km": 93200, "work": "Spark plugs + coil packs Bank 1", "parts": ["Motorcraft SP-548 x8", "Motorcraft DG-511 x4"], "notes": "Misfire on cylinders 1-4; all 4 coil packs on Bank 1 replaced. After repair, misfire resolved but P0133 returned after 2 weeks" },
+  { "date": "2025-06-12", "odometer_km": 87600, "work": "Exhaust manifold gasket replacement Bank 1", "parts": ["Fel-Pro MS98017T"], "notes": "Exhaust leak at manifold gasket repaired" },
+  { "date": "2025-01-20", "odometer_km": 81000, "work": "Fuel injectors cleaned", "parts": [], "notes": "Injectors flow-tested, all within 2% of spec" },
+  { "date": "2024-08-15", "odometer_km": 74500, "work": "Timing chain service", "parts": ["cassette", "tensioners"], "notes": "Routine timing service at manufacturer interval" }
+]

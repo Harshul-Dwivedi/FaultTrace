@@ -1,0 +1,56 @@
+{
+  "code": "P0171",
+  "title": "System Too Lean (Bank 1)",
+  "common_causes": [
+    { "cause": "vacuum_leak", "prior": 0.3, "label": "Vacuum leak (intake manifold, hoses, brake booster)" },
+    { "cause": "maf_fault", "prior": 0.2, "label": "MAF sensor under-reporting airflow" },
+    { "cause": "o2_sensor_fault", "prior": 0.25, "label": "O2 sensor biased lean or failed" },
+    { "cause": "weak_fuel_delivery", "prior": 0.15, "label": "Weak fuel delivery (pump, filter, injectors)" },
+    { "cause": "ignition_fault", "prior": 0.1, "label": "Ignition fault (coils, plugs, wires)" }
+  ],
+  "characteristic_signatures": {
+    "vacuum_leak": "Fuel trims rise immediately with load; MAF reads low with consistent proportional offset; O2 leans out under load but still switches.",
+    "maf_fault": "MAF readings erratic or implausible; trims proportional to MAF error; MAF variance high.",
+    "o2_sensor_fault": "O2 voltage flatlined or railed with no switching; fuel trims climb GRADUALLY over time as ECU integrates the false signal; MAF reads correctly.",
+    "weak_fuel_delivery": "Trims go NEGATIVE at high load; fuel pressure drops under demand.",
+    "ignition_fault": "Misfires on specific cylinders; trims near normal."
+  },
+  "available_tests": [
+    {
+      "test_id": "o2_voltage_capture",
+      "label": "Extended O2 voltage capture (30s steady-state)",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.30,
+        "maf_fault": 0.10,
+        "o2_sensor_fault": 0.95,
+        "weak_fuel_delivery": 0.10,
+        "ignition_fault": 0.10
+      }
+    },
+    {
+      "test_id": "o2_disconnect_trim_check",
+      "label": "Disconnect O2, check if trims reset in open-loop",
+      "cost": "medium",
+      "expected_likelihood": {
+        "vacuum_leak": 0.20,
+        "maf_fault": 0.10,
+        "o2_sensor_fault": 0.95,
+        "weak_fuel_delivery": 0.10,
+        "ignition_fault": 0.10
+      }
+    },
+    {
+      "test_id": "known_good_o2_swap",
+      "label": "Swap O2 sensor with known-good unit",
+      "cost": "high",
+      "expected_likelihood": {
+        "vacuum_leak": 0.05,
+        "maf_fault": 0.05,
+        "o2_sensor_fault": 0.95,
+        "weak_fuel_delivery": 0.05,
+        "ignition_fault": 0.05
+      }
+    }
+  ]
+}

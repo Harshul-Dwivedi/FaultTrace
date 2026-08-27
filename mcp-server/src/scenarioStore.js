@@ -123,8 +123,14 @@ export class ScenarioStore {
     return this.loadJson(join(dir, "service_history.json"), []);
   }
 
-  lookupKnowledge(code) {
+  lookupKnowledge(code, vin) {
     const safeCode = code.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+    if (vin) {
+      const dir = this.resolveScenario(vin);
+      const file = join(dir, "knowledge", `${safeCode}.json`);
+      const entry = this.loadJson(file, null);
+      if (entry) return entry;
+    }
     for (const scenarioId of new Set(Object.values(this.vinMap))) {
       const file = join(this.scenariosRoot, scenarioId, "knowledge", `${safeCode}.json`);
       const entry = this.loadJson(file, null);
@@ -192,6 +198,14 @@ export class ScenarioStore {
 
   getActionLog() {
     return this.actionLog;
+  }
+
+  getVehicleInfo(vin) {
+    const dir = this.resolveScenario(vin);
+    const meta = this.loadJson(join(dir, "meta.json"), null);
+    if (!meta) return null;
+    const { ground_truth_eval_only, notes, ...safe } = meta;
+    return safe;
   }
 }
 

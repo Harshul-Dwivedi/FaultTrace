@@ -1,0 +1,7 @@
+[
+  { "date": "2026-01-10", "odometer_km": 142300, "work": "Oil change + filter", "parts": ["0W-20 synthetic", "oil filter"], "notes": "Air filter replaced (was dirty, ~15k km old)" },
+  { "date": "2025-08-22", "odometer_km": 135800, "work": "Spark plugs replaced", "parts": ["Denso SK20R11 x4"], "notes": "All plugs within wear spec, replaced as maintenance" },
+  { "date": "2025-03-15", "odometer_km": 128400, "work": "Engine air filter + cabin filter", "parts": ["Toyota 17801-21050"], "notes": "Old air filter heavily contaminated with oil mist from PCV" },
+  { "date": "2024-11-20", "odometer_km": 121000, "work": "PCV valve replacement", "parts": ["Toyota 12204-28100"], "notes": "PCV was stuck open, causing oil vapor to reach intake" },
+  { "date": "2024-06-05", "odometer_km": 112500, "work": "Brake service rear", "parts": ["pads", "rotors"], "notes": "Routine brake service, no other findings" }
+]

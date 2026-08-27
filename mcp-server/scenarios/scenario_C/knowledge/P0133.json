@@ -1,0 +1,56 @@
+{
+  "code": "P0133",
+  "title": "O2 Sensor Slow Response (Bank 1 Sensor 1)",
+  "common_causes": [
+    { "cause": "o2_sensor_contamination", "prior": 0.35, "label": "O2 sensor contaminated (silicone, lead, fuel additives)" },
+    { "cause": "o2_sensor_aging", "prior": 0.3, "label": "O2 sensor aged beyond service life" },
+    { "cause": "o2_heater_fault", "prior": 0.15, "label": "O2 sensor heater circuit fault" },
+    { "cause": "exhaust_leak", "prior": 0.1, "label": "Exhaust leak upstream of O2 sensor" },
+    { "cause": "wiring_fault", "prior": 0.1, "label": "O2 sensor wiring/connector fault" }
+  ],
+  "characteristic_signatures": {
+    "o2_sensor_contamination": "O2 voltage stuck or railed; no switching; response time much slower than spec; often from silicone or leaded fuel exposure.",
+    "o2_sensor_aging": "O2 switching rate degrades gradually over time; voltage peaks may not reach full lean/rich extremes.",
+    "o2_heater_fault": "O2 readings slow to respond when cold; improves as sensor heats up; heater circuit DTC may also be present.",
+    "exhaust_leak": "O2 reads lean near leak due to ambient air ingress; may improve under load when exhaust pressure rises.",
+    "wiring_fault": "Intermittent O2 signal; may show noise or dropouts correlated with harness movement."
+  },
+  "available_tests": [
+    {
+      "test_id": "o2_voltage_capture",
+      "label": "Extended O2 voltage capture (30s steady-state)",
+      "cost": "low",
+      "expected_likelihood": {
+        "o2_sensor_contamination": 0.90,
+        "o2_sensor_aging": 0.85,
+        "o2_heater_fault": 0.40,
+        "exhaust_leak": 0.30,
+        "wiring_fault": 0.20
+      }
+    },
+    {
+      "test_id": "o2_disconnect_trim_check",
+      "label": "Disconnect O2, check if trims reset in open-loop",
+      "cost": "medium",
+      "expected_likelihood": {
+        "o2_sensor_contamination": 0.80,
+        "o2_sensor_aging": 0.80,
+        "o2_heater_fault": 0.30,
+        "exhaust_leak": 0.20,
+        "wiring_fault": 0.90
+      }
+    },
+    {
+      "test_id": "known_good_o2_swap",
+      "label": "Swap O2 sensor with known-good unit",
+      "cost": "high",
+      "expected_likelihood": {
+        "o2_sensor_contamination": 0.95,
+        "o2_sensor_aging": 0.95,
+        "o2_heater_fault": 0.50,
+        "exhaust_leak": 0.05,
+        "wiring_fault": 0.05
+      }
+    }
+  ]
+}

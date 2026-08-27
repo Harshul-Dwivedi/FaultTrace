@@ -14,5 +14,43 @@
     "weak_fuel_delivery": "Trims go NEGATIVE at high load (ECU can't add enough fuel under demand) or fuel pressure drops under load; lean at WOT.",
     "ignition_fault": "Misfires present but fuel trims remain near normal (<±8%); misfire often cylinder-specific rather than random across all cylinders.",
     "o2_sensor_fault": "O2 voltage flatlined near 0V or railed near 1V with no switching while fuel trims show active closed-loop correction."
-  }
+  },
+  "available_tests": [
+    {
+      "test_id": "smoke_test",
+      "label": "Smoke machine intake test",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.95,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "ignition_fault": 0.05,
+        "o2_sensor_fault": 0.05
+      }
+    },
+    {
+      "test_id": "vac_gauge_idle",
+      "label": "Manifold vacuum gauge at idle",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.90,
+        "maf_fault": 0.10,
+        "weak_fuel_delivery": 0.10,
+        "ignition_fault": 0.10,
+        "o2_sensor_fault": 0.05
+      }
+    },
+    {
+      "test_id": "trim_recheck_booster_hose_clamped",
+      "label": "Fuel trim recheck with booster hose clamped",
+      "cost": "medium",
+      "expected_likelihood": {
+        "vacuum_leak": 0.95,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "ignition_fault": 0.05,
+        "o2_sensor_fault": 0.05
+      }
+    }
+  ]
 }

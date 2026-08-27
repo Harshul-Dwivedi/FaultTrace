@@ -14,5 +14,43 @@
     "maf_fault": "Misfires accompany implausible/erratic MAF readings.",
     "weak_fuel_delivery": "Misfires at high load/high demand with negative-going trims or low fuel pressure.",
     "compression_mechanical": "Misfire persists at all conditions, often single-cylinder; compression test abnormal."
-  }
+  },
+  "available_tests": [
+    {
+      "test_id": "smoke_test",
+      "label": "Smoke machine intake test",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.95,
+        "ignition_fault": 0.05,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "compression_mechanical": 0.05
+      }
+    },
+    {
+      "test_id": "vac_gauge_idle",
+      "label": "Manifold vacuum gauge at idle",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.90,
+        "ignition_fault": 0.10,
+        "maf_fault": 0.10,
+        "weak_fuel_delivery": 0.10,
+        "compression_mechanical": 0.10
+      }
+    },
+    {
+      "test_id": "trim_recheck_booster_hose_clamped",
+      "label": "Recheck fuel trims with brake booster hose clamped",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.95,
+        "ignition_fault": 0.05,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "compression_mechanical": 0.05
+      }
+    }
+  ]
 }

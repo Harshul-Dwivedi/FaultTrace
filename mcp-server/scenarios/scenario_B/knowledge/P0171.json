@@ -1,0 +1,56 @@
+{
+  "code": "P0171",
+  "title": "System Too Lean (Bank 1)",
+  "common_causes": [
+    { "cause": "vacuum_leak", "prior": 0.3, "label": "Vacuum leak (intake manifold, hoses, brake booster)" },
+    { "cause": "maf_fault", "prior": 0.35, "label": "MAF sensor under-reporting or erratic" },
+    { "cause": "weak_fuel_delivery", "prior": 0.15, "label": "Weak fuel delivery (pump, filter, injectors)" },
+    { "cause": "ignition_fault", "prior": 0.1, "label": "Ignition fault (coils, plugs, wires)" },
+    { "cause": "o2_sensor_fault", "prior": 0.1, "label": "O2 sensor biased lean" }
+  ],
+  "characteristic_signatures": {
+    "vacuum_leak": "Fuel trims rise with load; MAF reads low but tracks RPM/load smoothly with consistent proportional offset; no erratic spikes.",
+    "maf_fault": "MAF readings erratic with high variance and occasional wild spikes; MAF does not correlate smoothly with RPM/load; coefficient of variation of MAF residuals is much higher than a healthy sensor.",
+    "weak_fuel_delivery": "Trims go NEGATIVE at high load; fuel pressure drops under demand.",
+    "ignition_fault": "Misfires concentrated on specific cylinders; trims near normal.",
+    "o2_sensor_fault": "O2 voltage flatlined while trims show active closed-loop correction."
+  },
+  "available_tests": [
+    {
+      "test_id": "known_good_maf_swap",
+      "label": "Swap MAF with known-good unit",
+      "cost": "high",
+      "expected_likelihood": {
+        "vacuum_leak": 0.05,
+        "maf_fault": 0.95,
+        "weak_fuel_delivery": 0.05,
+        "ignition_fault": 0.05,
+        "o2_sensor_fault": 0.05
+      }
+    },
+    {
+      "test_id": "vacuum_leak_smoke",
+      "label": "Smoke machine intake test for vacuum leaks",
+      "cost": "low",
+      "expected_likelihood": {
+        "vacuum_leak": 0.95,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "ignition_fault": 0.05,
+        "o2_sensor_fault": 0.05
+      }
+    },
+    {
+      "test_id": "fuel_pressure_test",
+      "label": "Static + loaded fuel pressure test",
+      "cost": "medium",
+      "expected_likelihood": {
+        "vacuum_leak": 0.05,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.90,
+        "ignition_fault": 0.05,
+        "o2_sensor_fault": 0.05
+      }
+    }
+  ]
+}

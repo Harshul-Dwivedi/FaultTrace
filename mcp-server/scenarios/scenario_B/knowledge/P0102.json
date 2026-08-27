@@ -1,0 +1,56 @@
+{
+  "code": "P0102",
+  "title": "Mass Air Flow Circuit Low Input",
+  "common_causes": [
+    { "cause": "maf_contamination", "prior": 0.4, "label": "MAF hot-wire contamination (oil, dirt, debris)" },
+    { "cause": "maf_electrical_fault", "prior": 0.25, "label": "MAF sensor electrical fault (wiring, connector)" },
+    { "cause": "maf_ground_fault", "prior": 0.15, "label": "MAF ground circuit fault" },
+    { "cause": "air_intake_restrict", "prior": 0.1, "label": "Air intake restriction upstream of MAF" },
+    { "cause": "ecu_fault", "prior": 0.1, "label": "ECU MAF input circuit fault" }
+  ],
+  "characteristic_signatures": {
+    "maf_contamination": "MAF reads consistently low with erratic spikes; contamination often from PCV oil vapor or dirty air filter; trims compensate proportionally.",
+    "maf_electrical_fault": "MAF signal may drop to zero or exhibit intermittent dropouts; correlated with electrical noise.",
+    "maf_ground_fault": "MAF reading offset by a constant; all readings shifted uniformly.",
+    "air_intake_restrict": "MAF reads low but smoothly; restriction upstream causes uniform under-reporting without spikes.",
+    "ecu_fault": "MAF input circuit voltage out of spec; other sensors may also be affected."
+  },
+  "available_tests": [
+    {
+      "test_id": "known_good_maf_swap",
+      "label": "Swap MAF with known-good unit",
+      "cost": "high",
+      "expected_likelihood": {
+        "maf_contamination": 0.95,
+        "maf_electrical_fault": 0.50,
+        "maf_ground_fault": 0.50,
+        "air_intake_restrict": 0.10,
+        "ecu_fault": 0.05
+      }
+    },
+    {
+      "test_id": "vacuum_leak_smoke",
+      "label": "Smoke machine intake test for vacuum leaks",
+      "cost": "low",
+      "expected_likelihood": {
+        "maf_contamination": 0.05,
+        "maf_electrical_fault": 0.05,
+        "maf_ground_fault": 0.05,
+        "air_intake_restrict": 0.10,
+        "ecu_fault": 0.05
+      }
+    },
+    {
+      "test_id": "fuel_pressure_test",
+      "label": "Static + loaded fuel pressure test",
+      "cost": "medium",
+      "expected_likelihood": {
+        "maf_contamination": 0.05,
+        "maf_electrical_fault": 0.05,
+        "maf_ground_fault": 0.05,
+        "air_intake_restrict": 0.05,
+        "ecu_fault": 0.05
+      }
+    }
+  ]
+}

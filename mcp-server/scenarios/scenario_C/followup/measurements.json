@@ -1,0 +1,31 @@
+{
+  "o2_voltage_capture": {
+    "test_id": "o2_voltage_capture",
+    "type": "o2_extended_log",
+    "result": "o2_stuck_lean",
+    "detail": "Extended O2 voltage capture over 30 seconds at 2500 RPM steady-state. Voltage remains between 0.02-0.08V with no switching events. Normal O2 should switch between 0.1-0.9V at 1-3 Hz. Sensor is stuck railed lean.",
+    "o2_min_v": 0.02,
+    "o2_max_v": 0.08,
+    "o2_switch_count": 0,
+    "duration_s": 30,
+    "expected_switch_count_range": [30, 90]
+  },
+  "o2_disconnect_trim_check": {
+    "test_id": "o2_disconnect_trim_check",
+    "type": "o2_sensor_disconnect",
+    "result": "trims_normalized_in_open_loop",
+    "detail": "With upstream O2 sensor disconnected (ECU enters open-loop/fixed fuel map), fuel trims reset to near zero within 5 seconds. ECU no longer chases the false lean signal. Engine runs correctly on base fuel map.",
+    "stft_after_disconnect": 1.2,
+    "ltft_after_disconnect": 2.1,
+    "duration_s": 10
+  },
+  "known_good_o2_swap": {
+    "test_id": "known_good_o2_swap",
+    "type": "o2_sensor_swap",
+    "result": "normal_switching_restored",
+    "detail": "With a known-good O2 sensor installed, voltage switches normally between 0.1-0.9V at ~2 Hz. Fuel trims begin learning down. Confirms the original sensor was the fault source.",
+    "o2_switch_rate_hz": 2.0,
+    "stft_normalized": 1.5,
+    "duration_s": 30
+  }
+}
