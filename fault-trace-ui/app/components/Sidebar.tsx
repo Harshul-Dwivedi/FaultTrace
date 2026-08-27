@@ -1,6 +1,6 @@
 'use client'
 
-import type { SessionCard } from '../lib/types'
+import type { SessionCard } from '../../lib/types'
 
 export function Sidebar({
   sessions,

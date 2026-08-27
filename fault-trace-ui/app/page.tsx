@@ -86,6 +86,7 @@ export default function Page() {
   const [loadingInvestigation, setLoadingInvestigation] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
   const [showReport, setShowReport] = useState(false)
+  const [loadNonce, setLoadNonce] = useState(0)
 
   const [investigation, setInvestigation] = useState<InvestigationData>({
     vehicle: null,
@@ -137,7 +138,17 @@ export default function Page() {
 
     async function loadInvestigation() {
       setLoadingInvestigation(true)
-      setInvestigation((prev) => ({ ...prev, status: 'loading' }))
+      // Reset session-derived fields so a failed/cross-session load never
+      // renders or exports data from the previously selected session.
+      setInvestigation({
+        vehicle: null,
+        evidence: [],
+        hypotheses: [],
+        tests: [],
+        gates: [],
+        cost: null,
+        status: 'loading',
+      })
 
       try {
         const [events, turns] = await Promise.all([
@@ -158,16 +169,18 @@ export default function Page() {
         const vehicle = parseVehicleInfo(events)
         const evidence = parseEvidenceTimeline(events)
         const hypotheses = parseHypotheses(agentOutput)
-        const tests = parseInfoGain(agentOutput, evidence)
+        const tests = parseInfoGain(agentOutput, evidence, hypotheses)
         const gates = parseGateLog(events)
         const cost = parseCost(turns)
 
         const lastTurn = turns[0]
-        const status = lastTurn?.state.status === 'running'
-          ? 'running'
-          : lastTurn?.state.status === 'error'
-            ? 'error'
-            : 'done'
+        const status = turns.length === 0
+          ? 'idle'
+          : lastTurn?.state.status === 'running'
+            ? 'running'
+            : lastTurn?.state.status === 'error'
+              ? 'error'
+              : 'done'
 
         setInvestigation({
           vehicle,
@@ -180,11 +193,16 @@ export default function Page() {
         })
       } catch (err) {
         if (!cancelled) {
-          setInvestigation((prev) => ({
-            ...prev,
+          setInvestigation({
+            vehicle: null,
+            evidence: [],
+            hypotheses: [],
+            tests: [],
+            gates: [],
+            cost: null,
             status: 'error',
             error: err instanceof Error ? err.message : 'Failed to load investigation',
-          }))
+          })
         }
       } finally {
         if (!cancelled) setLoadingInvestigation(false)
@@ -193,22 +211,25 @@ export default function Page() {
 
     loadInvestigation()
     return () => { cancelled = true }
-  }, [activeSessionId])
+  }, [activeSessionId, loadNonce])
 
   const refresh = () => {
     setRefreshing(true)
-    loadSessions().then(() => {
-      if (activeSessionId) {
-        // Re-trigger investigation load
-        setActiveSessionId((prev) => prev)
-      }
+    loadSessions().finally(() => {
+      // Bump the nonce so the investigation effect re-runs for the active
+      // session (setting the same session id alone would not re-trigger it).
+      if (activeSessionId) setLoadNonce((n) => n + 1)
       setTimeout(() => setRefreshing(false), 400)
     })
   }
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
 
-  const canExport = !!activeSessionId && (investigation.hypotheses.length > 0 || investigation.evidence.length > 0)
+  const canExport = !!activeSessionId &&
+    investigation.status !== 'idle' &&
+    investigation.status !== 'loading' &&
+    investigation.status !== 'error' &&
+    (investigation.hypotheses.length > 0 || investigation.evidence.length > 0)
   const reportTitle = activeSession?.issue || activeSessionId || 'faulttrace'
 
   return (

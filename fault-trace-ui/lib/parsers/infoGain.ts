@@ -1,4 +1,4 @@
-import type { TestRecommendation, EvidenceItem } from '../types'
+import type { TestRecommendation, EvidenceItem, Hypothesis } from '../types'
 
 const COST_MAP: Record<string, string> = {
   low: 'low',
@@ -7,11 +7,90 @@ const COST_MAP: Record<string, string> = {
   high: 'high',
 }
 
+function posteriorOf(h: Hypothesis): number {
+  // Parser stores posterior on a 0-100 scale; normalize to 0-1 for entropy math.
+  return h.posterior > 1 ? h.posterior / 100 : h.posterior
+}
+
+const KB_KEY_PATTERNS: Record<string, RegExp> = {
+  vacuum_leak: /vacuum|intake|leak|hose|booster/,
+  maf_fault: /maf|mass\s*air\s*flow/,
+  weak_fuel_delivery: /fuel\s*delivery|fuel|injector|pump|filter/,
+  ignition_fault: /ignition|coil|plug|spark|misfire/,
+  o2_sensor_fault: /o2|oxygen|\blambda\b/,
+}
+
+function entropy(p: number[]): number {
+  let h = 0
+  for (const x of p) {
+    if (x > 0) h -= x * Math.log(x)
+  }
+  return h
+}
+
+// Build a 0-1 posterior distribution aligned with the KB hypothesis keys.
+function buildPosterior(hypotheses: Hypothesis[]): Record<string, number> {
+  const posteriors: Record<string, number> = {}
+  let matched = 0
+  for (const h of hypotheses) {
+    for (const [key, pattern] of Object.entries(KB_KEY_PATTERNS)) {
+      if (pattern.test(h.name.toLowerCase())) {
+        posteriors[key] = posteriorOf(h)
+        matched++
+        break
+      }
+    }
+  }
+  if (matched === 0) return {}
+  return posteriors
+}
+
+// Given posteriors over hypotheses and a test's per-hypothesis likelihoods,
+// compute the expected information gain = H(P) - E[ H(P | outcome) ].
+function expectedEntropyReduction(
+  posteriors: Record<string, number>,
+  likelihoods: Record<string, number>
+): number | null {
+  const keys = Object.keys(posteriors)
+  if (keys.length < 2) return null
+
+  const p = keys.map((k) => posteriors[k])
+  const totalP = p.reduce((s, v) => s + v, 0)
+  if (totalP <= 0) return null
+  const P = p.map((v) => v / totalP)
+
+  // Renormalize likelihoods so each hypothesis's signal is a proper probability.
+  const l = keys.map((k) => {
+    const raw = likelihoods[k]
+    if (raw == null || isNaN(raw)) return null
+    return Math.max(0, Math.min(1, raw))
+  })
+  if (l.some((v) => v === null)) return null
+
+  // P(positive) and P(negative) under the current posterior.
+  const pPos = keys.reduce((s, k, i) => s + P[i] * (l[i] as number), 0)
+  if (pPos <= 0 || pPos >= 1) return null
+
+  // Posterior if the test comes back positive.
+  const PP = keys.map((k, i) => (P[i] * (l[i] as number)) / pPos)
+  // Posterior if the test comes back negative.
+  const PN = keys.map((k, i) => (P[i] * (1 - (l[i] as number))) / (1 - pPos))
+
+  const hPrior = entropy(P)
+  const hPos = entropy(PP)
+  const hNeg = entropy(PN)
+  const expected = pPos * hPos + (1 - pPos) * hNeg
+
+  return Math.max(0, hPrior - expected)
+}
+
 export function parseInfoGain(
   modelOutput: string,
-  evidenceItems: EvidenceItem[] = []
+  evidenceItems: EvidenceItem[] = [],
+  hypotheses: Hypothesis[] = []
 ): TestRecommendation[] {
   const tests: TestRecommendation[] = []
+  const posteriors = buildPosterior(hypotheses)
 
   // Strategy 1: Extract from lookup_dtc_knowledge responses (if available_tests exists)
   for (const item of evidenceItems) {
@@ -31,20 +110,18 @@ export function parseInfoGain(
 
         if (Array.isArray(availableTests)) {
           for (const t of availableTests) {
-            const likelihoods = t.expected_likelihood ? Object.values(t.expected_likelihood) : []
-            const variance = likelihoods.length > 1
-              ? likelihoods.reduce((s, v) => {
-                  const avg = likelihoods.reduce((a, b) => a + b, 0) / likelihoods.length
-                  return s + Math.pow(v - avg, 2)
-                }, 0) / likelihoods.length
-              : 0
-            const gain = Math.min(1, variance * 3 + (likelihoods[0] || 0) * 0.3)
+            const likelihoods = t.expected_likelihood || {}
+            // Only surface a real gain when the posterior and per-hypothesis
+            // likelihoods are both available; otherwise show no numeric gain.
+            const gain = expectedEntropyReduction(posteriors, likelihoods)
 
             tests.push({
               testId: t.test_id,
               label: t.label || t.test_id.replace(/_/g, ' '),
-              description: '',
-              gain: Math.round(gain * 100) / 100,
+              description: gain == null
+                ? 'Expected information gain unavailable (need posterior + likelihoods)'
+                : 'Expected entropy reduction given current belief',
+              gain: gain == null ? 0 : Math.round(gain * 100) / 100,
               cost: COST_MAP[t.cost] || t.cost || 'low',
               costClass: COST_MAP[t.cost] || 'low',
               rank: 0,
@@ -55,10 +132,10 @@ export function parseInfoGain(
     }
   }
 
-  // Strategy 2: Extract from model text output
+  // Strategy 2: Extract from model text output (fallback when no KB response)
   if (tests.length === 0) {
     const lines = modelOutput.split('\n')
-    
+
     // Known test patterns to search for in agent text
     const testPatterns = [
       { id: 'smoke_test', patterns: [/smoke\s+test/i, /intake.*smoke/i, /smoke.*intake/i, /vacuum.*smoke/i] },
