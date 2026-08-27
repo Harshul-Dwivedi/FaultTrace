@@ -502,3 +502,9 @@ end-to-end:
   30 s timeout that kills the child; the MCP event loop is no longer blocked.
 - **smoke.mjs ESM** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`,
   `"type": "module"`), consistent with the earlier PR #9 dismissal of the same finding.
+- **Rerun discards subagent evidence** (round-2): agent instructions previously said to fold subagent
+  likelihoods into the posterior then re-run `run_analysis` to "confirm" — but `run_analysis` only
+  takes a VIN and recomputes from stored telemetry/priors, so that confirmation was meaningless.
+  Fixed by keeping `run_analysis` the **single authoritative** source of the posterior + recommended
+  test: subagents contribute supporting/contradictory *evidence* only and must not alter the
+  recommended test. Live registry agent synced.
