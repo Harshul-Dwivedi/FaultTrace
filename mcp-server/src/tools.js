@@ -103,14 +103,28 @@ export function registerTools(server, store) {
   );
 
   server.registerTool(
+    "get_vehicle_info",
+    {
+      title: "Get vehicle information",
+      description:
+        "Read vehicle metadata: make, model, year, engine specs, displacement, and scenario description. Use this to get vehicle-specific parameters (e.g. engine displacement) needed for derived-airflow and MAF-plausibility calculations. Read-only, safe.",
+      inputSchema: { vin: VinSchema },
+    },
+    async ({ vin }) => jsonResult(store.getVehicleInfo(vin))
+  );
+
+  server.registerTool(
     "lookup_dtc_knowledge",
     {
       title: "Look up DTC knowledge",
       description:
-        "Knowledge base entry for a DTC code: common root causes with base-rate priors (sum to 1) and each cause's characteristic signature in sensor data. Use priors as the Bayesian prior for hypothesis ranking. Read-only, safe.",
-      inputSchema: { code: z.string().describe("DTC code, e.g. P0171") },
+        "Knowledge base entry for a DTC code: common root causes with base-rate priors (sum to 1) and each cause's characteristic signature in sensor data. Use priors as the Bayesian prior for hypothesis ranking. Pass the VIN of the vehicle being investigated to get scenario-specific priors. Read-only, safe.",
+      inputSchema: {
+        code: z.string().describe("DTC code, e.g. P0171"),
+        vin: VinSchema.optional().describe("VIN of the vehicle being investigated, to get scenario-specific knowledge"),
+      },
     },
-    async ({ code }) => jsonResult(store.lookupKnowledge(code.toUpperCase()))
+    async ({ code, vin }) => jsonResult(store.lookupKnowledge(code.toUpperCase(), vin))
   );
 
   server.registerTool(

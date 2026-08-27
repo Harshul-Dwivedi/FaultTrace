@@ -100,7 +100,7 @@ strictEqual(emptyInverted.t.length, 0, "inverted window returns empty");
 const history = text(await client.callTool({ name: "get_service_history", arguments: { vin: VIN } }));
 ok(history.length >= 3);
 
-const kb = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: CODE } }));
+const kb = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: CODE, vin: VIN } }));
 const priorSum = kb.common_causes.reduce((s, c) => s + c.prior, 0);
 ok(Math.abs(priorSum - 1) < 0.01, `priors must sum to ~1, got ${priorSum}`);
 ok(kb.characteristic_signatures.vacuum_leak.length > 20);
@@ -112,7 +112,7 @@ ok(dtcsB.some((d) => d.code === "P0171"), "scenario B must have P0171");
 ok(dtcsB.some((d) => d.code === "P0102"), "scenario B must have P0102 (MAF)");
 const frameB = text(await client.callTool({ name: "get_freeze_frame", arguments: { vin: VIN_B, code: "P0102" } }));
 ok(frameB.maf < 15, "scenario B freeze-frame MAF should be low (contaminated)");
-const kbP0102 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0102" } }));
+const kbP0102 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0102", vin: VIN_B } }));
 ok(kbP0102.common_causes.length >= 3, "P0102 knowledge must have causes");
 
 // Scenario C: O2 sensor fault
@@ -121,7 +121,7 @@ ok(dtcsC.length >= 2, `scenario C should have >= 2 DTCs, got ${dtcsC.length}`);
 ok(dtcsC.some((d) => d.code === "P0133"), "scenario C must have P0133 (O2 slow)");
 const frameC = text(await client.callTool({ name: "get_freeze_frame", arguments: { vin: VIN_C, code: "P0133" } }));
 ok(frameC.o2_voltage < 0.1, "scenario C O2 should be stuck lean");
-const kbP0133 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0133" } }));
+const kbP0133 = text(await client.callTool({ name: "lookup_dtc_knowledge", arguments: { code: "P0133", vin: VIN_C } }));
 ok(kbP0133.common_causes.length >= 3, "P0133 knowledge must have causes");
 
 const refused = await client.callTool({

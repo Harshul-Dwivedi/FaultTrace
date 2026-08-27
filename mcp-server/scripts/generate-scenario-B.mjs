@@ -93,7 +93,7 @@ let ltftSmoothed = 3;
 
 for (let i = 0; i < N; i++) {
   const ts = +(i / HZ).toFixed(2);
-  const prof = phaseAt(ts);
+  const prof = profile(ts);
 
   const r = clamp(prof.rpm + gaussian() * 25, 400, 3200);
   const load = clamp(prof.load + gaussian() * 1.5, 8, 95);

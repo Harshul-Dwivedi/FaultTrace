@@ -29,86 +29,26 @@
       }
     },
     {
-      "test_id": "maf_plausibility_check",
-      "label": "Compare MAF reading to RPM/load-derived expected airflow",
+      "test_id": "vac_gauge_idle",
+      "label": "Manifold vacuum gauge at idle",
       "cost": "low",
       "expected_likelihood": {
-        "vacuum_leak": 0.85,
-        "maf_fault": 0.90,
+        "vacuum_leak": 0.90,
+        "maf_fault": 0.10,
         "weak_fuel_delivery": 0.10,
         "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.10
-      }
-    },
-    {
-      "test_id": "fuel_pressure_test",
-      "label": "Static + loaded fuel pressure test",
-      "cost": "medium",
-      "expected_likelihood": {
-        "vacuum_leak": 0.05,
-        "maf_fault": 0.05,
-        "weak_fuel_delivery": 0.90,
-        "ignition_fault": 0.05,
         "o2_sensor_fault": 0.05
       }
     },
     {
-      "test_id": "o2_extended_log",
-      "label": "Extended O2 voltage capture (30s steady-state)",
-      "cost": "low",
+      "test_id": "trim_recheck_booster_hose_clamped",
+      "label": "Fuel trim recheck with booster hose clamped",
+      "cost": "medium",
       "expected_likelihood": {
-        "vacuum_leak": 0.30,
-        "maf_fault": 0.10,
-        "weak_fuel_delivery": 0.10,
-        "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.90
-      }
-    },
-    {
-      "test_id": "known_good_maf_swap",
-      "label": "Swap MAF with known-good unit",
-      "cost": "high",
-      "expected_likelihood": {
-        "vacuum_leak": 0.05,
-        "maf_fault": 0.95,
-        "weak_fuel_delivery": 0.05,
-        "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.05
-      }
-    },
-    {
-      "test_id": "known_good_o2_swap",
-      "label": "Swap O2 sensor with known-good unit",
-      "cost": "high",
-      "expected_likelihood": {
-        "vacuum_leak": 0.05,
+        "vacuum_leak": 0.95,
         "maf_fault": 0.05,
         "weak_fuel_delivery": 0.05,
         "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.95
-      }
-    },
-    {
-      "test_id": "o2_disconnect_trim_check",
-      "label": "Disconnect O2, check if trims reset in open-loop",
-      "cost": "medium",
-      "expected_likelihood": {
-        "vacuum_leak": 0.20,
-        "maf_fault": 0.10,
-        "weak_fuel_delivery": 0.10,
-        "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.90
-      }
-    },
-    {
-      "test_id": "compression_test",
-      "label": "Cylinder compression test",
-      "cost": "medium",
-      "expected_likelihood": {
-        "vacuum_leak": 0.10,
-        "maf_fault": 0.05,
-        "weak_fuel_delivery": 0.05,
-        "ignition_fault": 0.30,
         "o2_sensor_fault": 0.05
       }
     }

@@ -17,27 +17,27 @@
   },
   "available_tests": [
     {
-      "test_id": "smoke_test",
-      "label": "Smoke machine intake test",
-      "cost": "low",
+      "test_id": "known_good_maf_swap",
+      "label": "Swap MAF with known-good unit",
+      "cost": "high",
       "expected_likelihood": {
-        "vacuum_leak": 0.95,
-        "maf_fault": 0.05,
-        "weak_fuel_delivery": 0.05,
+        "vacuum_leak": 0.05,
         "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.05
+        "maf_fault": 0.95,
+        "weak_fuel_delivery": 0.05,
+        "compression_mechanical": 0.05
       }
     },
     {
-      "test_id": "maf_plausibility_check",
-      "label": "Compare MAF reading to RPM/load-derived expected airflow",
+      "test_id": "vacuum_leak_smoke",
+      "label": "Smoke machine intake test for vacuum leaks",
       "cost": "low",
       "expected_likelihood": {
-        "vacuum_leak": 0.85,
-        "maf_fault": 0.95,
-        "weak_fuel_delivery": 0.10,
-        "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.10
+        "vacuum_leak": 0.95,
+        "ignition_fault": 0.05,
+        "maf_fault": 0.05,
+        "weak_fuel_delivery": 0.05,
+        "compression_mechanical": 0.05
       }
     },
     {
@@ -46,70 +46,10 @@
       "cost": "medium",
       "expected_likelihood": {
         "vacuum_leak": 0.05,
+        "ignition_fault": 0.05,
         "maf_fault": 0.05,
         "weak_fuel_delivery": 0.90,
-        "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.05
-      }
-    },
-    {
-      "test_id": "o2_extended_log",
-      "label": "Extended O2 voltage capture (30s steady-state)",
-      "cost": "low",
-      "expected_likelihood": {
-        "vacuum_leak": 0.30,
-        "maf_fault": 0.10,
-        "weak_fuel_delivery": 0.10,
-        "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.90
-      }
-    },
-    {
-      "test_id": "known_good_maf_swap",
-      "label": "Swap MAF with known-good unit",
-      "cost": "high",
-      "expected_likelihood": {
-        "vacuum_leak": 0.05,
-        "maf_fault": 0.95,
-        "weak_fuel_delivery": 0.05,
-        "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.05
-      }
-    },
-    {
-      "test_id": "known_good_o2_swap",
-      "label": "Swap O2 sensor with known-good unit",
-      "cost": "high",
-      "expected_likelihood": {
-        "vacuum_leak": 0.05,
-        "maf_fault": 0.05,
-        "weak_fuel_delivery": 0.05,
-        "ignition_fault": 0.05,
-        "o2_sensor_fault": 0.95
-      }
-    },
-    {
-      "test_id": "o2_disconnect_trim_check",
-      "label": "Disconnect O2, check if trims reset in open-loop",
-      "cost": "medium",
-      "expected_likelihood": {
-        "vacuum_leak": 0.20,
-        "maf_fault": 0.10,
-        "weak_fuel_delivery": 0.10,
-        "ignition_fault": 0.10,
-        "o2_sensor_fault": 0.90
-      }
-    },
-    {
-      "test_id": "compression_test",
-      "label": "Cylinder compression test",
-      "cost": "medium",
-      "expected_likelihood": {
-        "vacuum_leak": 0.10,
-        "maf_fault": 0.05,
-        "weak_fuel_delivery": 0.05,
-        "ignition_fault": 0.30,
-        "o2_sensor_fault": 0.05
+        "compression_mechanical": 0.05
       }
     }
   ]
