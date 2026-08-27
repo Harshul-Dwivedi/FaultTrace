@@ -470,17 +470,20 @@ def likelihoods_from_telemetry(series):
         fuel_score += -0.15 if trim_rises else 0.0
         likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
 
-    # o2_sensor_fault: O2 railed/flatlined with no switching + healthy MAF. Its
-    # deciding signals are O2 + MAF; trim adjustments are fine-grained evidence
-    # applied only when trim/load telemetry is actually present.
+    # o2_sensor_fault: O2 railed/flatlined with no switching + a *healthy* MAF.
+    # The healthy-MAF discriminator is scored explicitly (the knowledge defines
+    # O2 fault by a railed O2 reading together with a correctly reading MAF), so
+    # a demonstrably erratic MAF is penalized rather than accepted as neutral.
     if has_maf and has_o2:
         o2_score = 0.5
         o2_score += 0.45 if railed else 0.0
         o2_score += -0.35 if switches else 0.0
+        if erratic:
+            o2_score -= 0.4   # contradictory MAF evidence argues against O2 sensor fault
+        elif smooth:
+            o2_score += 0.15  # healthy (smooth) MAF supports O2 sensor fault
         if has_trim:
             o2_score += 0.15 if trim_slow else 0.0
-            if smooth and not trim_rises:
-                o2_score += 0.15   # MAF healthy + trims not load-linked -> sensor, not condition
         likelihoods["o2_sensor_fault"] = max(0.05, min(1.0, o2_score))
 
     # ignition_fault: misfires present while trims stay near normal.
