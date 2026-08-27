@@ -5,6 +5,8 @@
   "description": "Upstream O2 sensor (Bank 1 Sensor 1) has failed, stuck railed lean at ~0.04V with no switching. The actual engine mixture is correct, but the ECU sees 'lean' and adds fuel via closed-loop trim correction. Trims climb gradually as ECU integrates the false lean signal. Engine runs slightly rich due to the ECU's over-compensation, but no significant driveability issues.",
   "ground_truth_eval_only": {
     "root_cause": "O2 sensor failure — upstream sensor (B1S1) stuck railed lean",
+    "canonical_cause": "o2_sensor_fault",
+    "expected_test_id": "known_good_o2_swap",
     "discriminators": {
       "o2_sensor_fault": "O2 voltage flatlined near 0V with NO switching pattern; fuel trims climb gradually (ECU integrating false lean signal); MAF reads correctly and tracks RPM/load smoothly.",
       "vacuum_leak": "MAF reads low with consistent offset; trims rise with load immediately, not gradually over time.",

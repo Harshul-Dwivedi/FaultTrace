@@ -390,11 +390,32 @@ types and the SPEC §7 Bayesian update:
 - O2 railed (0 crossings, span 0.086, pinned low) + trims not load-linked → o2_sensor_fault,
   while a leak always drives load-linked trims.
 
-**`eval/run_eval.mjs`** — CommonJS-free ESM harness that builds compact telemetry + priors from
-each scenario, drives analyze.py, and asserts the top posterior matches meta.json ground truth:
+**`eval/run_eval.mjs`** — ESM harness that builds compact telemetry + priors from each scenario,
+drives analyze.py, and asserts both the top posterior **and** the recommended test match
+meta.json ground truth (`canonical_cause` + `expected_test_id`, both eval-only):
 
 - Scenario A → vacuum_leak (49.3%) — recommended `smoke_test`
-- Scenario B → maf_fault (44.2%) — recommended `known_good_maf_swap`
-- Scenario C → o2_sensor_fault (54.9%) — recommended `known_good_o2_swap`
-- **Result: 3/3 PASS**, exit 0. Deterministic (no randomness in data or analysis).
-  Run with: `node eval/run_eval.mjs`
+- Scenario B → maf_fault (75.3%) — recommended `known_good_maf_swap`
+- Scenario C → o2_sensor_fault (83.7%) — recommended `known_good_o2_swap`
+- Plus an `fft_signature` self-test (in/out-of-band sinusoids across window lengths).
+- **Result: FFT self-test PASS, 3/3 scenarios PASS**, exit 0. Deterministic.
+  Run with: `node eval/run_eval.mjs` (interpreter via `FAULTTRACE_PYTHON`, else `python3`/`python`).
+
+**PR #9 Qodo remediation (8 comments, all addressed):**
+- **fft_signature scaling** (#4): Parseval-consistent normalization (ratio now ~0.5 for a pure
+  in-band sine regardless of `n`; verified by the sinusoid self-test).
+- **Zero posteriors for scenario-specific causes** (#2): `CAUSE_ALIASES` collapse
+  `maf_contamination`/`maf_electrical_fault`/`o2_sensor_aging`/`o2_heater_fault`/... onto the
+  canonical families, so P0102/P0133-only knowledge now diagnoses correctly (B→maf_fault 1.0,
+  C→o2_sensor_fault 1.0) instead of all-zero.
+- **Missing data became evidence** (#3): hypotheses are only scored when their deciding signals
+  are present; absent data -> the cause is omitted -> posterior stays at prior (no fabricated
+  likelihood / penalty).
+- **Low-cost preference** (#7): `diagnose` picks the cheapest test within 90% of the best
+  information gain (explicit low<medium<high ordering, deterministic tie-break).
+- **Eval metadata truth** (#5) + **recommendations asserted** (#6): verdicts now read
+  `canonical_cause`/`expected_test_id` from eval-only metadata and require the recommended test
+  to match.
+- **Python launcher portability** (#8): `FAULTTRACE_PYTHON` / `python3` / `python` fallback with a
+  clear error.
+- **ESM vs CommonJS** (#1): dismissed as N/A — this repo's committed tests are ESM (`.mjs`).

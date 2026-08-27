@@ -41,6 +41,56 @@ import math
 import sys
 
 
+# Canonical hypothesis names the analyzer can score. Scenario-specific DTC
+# knowledge (e.g. P0133) uses finer-grained cause names; those are collapsed
+# onto this family here so `bayesian_update` never silently zeroes a prior.
+CANONICAL_CAUSES = (
+    "vacuum_leak",
+    "maf_fault",
+    "weak_fuel_delivery",
+    "ignition_fault",
+    "o2_sensor_fault",
+)
+
+# Scenario-specific knowledge cause -> canonical family it abbreviates to.
+# Used when building priors / test likelihoods so every prior can be scored.
+CAUSE_ALIASES = {
+    # MAF family
+    "maf_contamination": "maf_fault",
+    "maf_electrical_fault": "maf_fault",
+    "maf_ground_fault": "maf_fault",
+    "air_intake_restrict": "maf_fault",
+    "ecu_fault": "maf_fault",
+    # O2 family
+    "o2_sensor_contamination": "o2_sensor_fault",
+    "o2_sensor_aging": "o2_sensor_fault",
+    "o2_heater_fault": "o2_sensor_fault",
+}
+
+# Load condition -> canonical cause this analyzer can genuinely diagnose.
+# Causes with no alias and not in CANONICAL_CAUSES get a neutral (no-evidence)
+# likelihood, so they are not fabricated a zero or a penalty.
+UNKNOWN_CAUSE = "__unknown__"
+
+
+def canonicalize(cause):
+    """Map a knowledge cause name onto the analyzer's canonical vocabulary."""
+    return CAUSE_ALIASES.get(cause, cause if cause in CANONICAL_CAUSES else UNKNOWN_CAUSE)
+
+
+def canonicalize_likelihoods(likelihoods):
+    """Merge a test's expected_likelihood / evidence into canonical cause space."""
+    out = {}
+    for cause, value in (likelihoods or {}).items():
+        c = canonicalize(cause)
+        if c == UNKNOWN_CAUSE:
+            continue
+        # For a given family, keep the strongest stated likelihood (a test
+        # probes the family; its most confident sub-cause represents the family).
+        out[c] = max(out.get(c, 0.0), float(value))
+    return out
+
+
 # --------------------------------------------------------------------------- #
 # Generic signal primitives (SPEC 5.3: FFT, correlation, plausibility, anomaly)
 # --------------------------------------------------------------------------- #
@@ -81,6 +131,11 @@ def fft_signature(t, value, expected_freq_band):
     it stays cheap and deterministic in pure Python. Returns peak frequency
     (Hz), the share of the signal's energy in that band, and whether a peak is
     present. Used for periodic signatures e.g. recurring-misfire cadence.
+
+    Normalization is Parseval-consistent and independent of sample count: the
+    denominator is the total detrended time-domain energy (n times the mean
+    squared amplitude), so a pure in-band sinusoid reports a stable ratio no
+    matter how many samples are in the window.
     """
     n = len(value)
     if n < 4:
@@ -93,31 +148,31 @@ def fft_signature(t, value, expected_freq_band):
     lo = max(lo, fs / n)  # at least one full cycle across the window
     hi = min(hi, fs / 2.0)  # Nyquist
 
-    total_power = sum(v * v for v in value) or 1.0
-    best_freq, best_power, band_power = 0.0, 0.0, 0.0
+    x = _detrend(value)
+    total_energy = n * sum(v * v for v in x) or 1.0
+    best_freq, best_power, band_energy = 0.0, 0.0, 0.0
 
-    # Scan a coarse grid of candidate frequencies inside the band.
+    # Score relational only (scale-free); Parseval: sum_k |X(k)|^2 = n * sum_i x_i^2.
     if hi > lo:
         step = max((hi - lo) / 128.0, (fs / n))
         f = lo
         while f <= hi:
-            # Single-bin DFT power at frequency f.
             real = imag = 0.0
-            for i, v in enumerate(value):
+            for i, v in enumerate(x):
                 ang = 2.0 * math.pi * f * t[i]
                 real += v * math.cos(ang)
                 imag -= v * math.sin(ang)
-            power = (real * real + imag * imag) / (n * n)
-            band_power += power
+            power = real * real + imag * imag
+            band_energy += power
             if power > best_power:
                 best_power, best_freq = power, f
             f += step
 
-    ratio = band_power / total_power if total_power else 0.0
+    ratio = band_energy / total_energy if total_energy else 0.0
     return {
         "peak_freq_hz": round(best_freq, 3),
         "band_energy_ratio": round(min(1.0, ratio), 4),
-        "match": bool(ratio >= 0.08),
+        "match": bool(ratio >= 0.35),  # pure in-band sine ~0.5 (other half in -f mirror)
     }
 
 
@@ -257,12 +312,34 @@ def _entropy(p, base=2.0):
 
 
 def bayesian_update(priors, likelihoods):
-    """Posterior ∝ prior × likelihood, normalized across hypotheses."""
-    keys = list(priors.keys())
+    """Posterior ∝ prior × likelihood, normalized across hypotheses.
+
+    Priors are canonicalized through `CAUSE_ALIASES` first so scenario-specific
+    DTC knowledge collapses onto the analyzer's canonical families. Any cause
+    without a real likelihood is treated as *no evidence* (likelihood 0.5) so
+    its posterior stays equal to its prior — it is never silently zeroed nor
+    penalized for absent data.
+    """
+    canon = {}
+    for cause, prior in priors.items():
+        c = canonicalize(cause)
+        if c == UNKNOWN_CAUSE:
+            continue  # analyzer has no vocabulary for it; drop, not zero
+        canon[c] = canon.get(c, 0.0) + max(0.0, prior)
+
+    tot_prior = sum(canon.values())
+    if tot_prior <= 0:
+        return {}
+    canon = {k: v / tot_prior for k, v in canon.items()}
+
+    keys = list(canon.keys())
     vals = []
     for k in keys:
-        prior = priors.get(k, 0.0)
-        likelihood = likelihoods.get(k, 0.0)
+        prior = canon[k]
+        if k in likelihoods:
+            likelihood = max(0.0, min(1.0, float(likelihoods[k])))
+        else:
+            likelihood = 0.5  # no evidence -> posterior = prior, no change
         vals.append(prior * likelihood)
     total = sum(vals)
     if total <= 0:
@@ -319,6 +396,11 @@ def _series(series, pid, key="value"):
     return s
 
 
+def _has(series, pid, min_len=4):
+    v = _series(series, pid)
+    return isinstance(v, list) and len(v) >= min_len
+
+
 def likelihoods_from_telemetry(series):
     """Map the ground-truth discriminators onto [0,1] per-hypothesis scores.
 
@@ -329,73 +411,82 @@ def likelihoods_from_telemetry(series):
       - o2_sensor_fault:O2 flatlined/railed with no switching + MAF healthy.
       - weak_fuel:      trims go NEGATIVE at high load.
       - ignition_fault: misfires present while trims stay near normal.
+
+    A hypothesis is only scored when its *deciding* signals are actually
+    present in the telemetry. A missing signal is treated as an unknown (the
+    cause key is omitted) so `bayesian_update` keeps its prior — missing data
+    is never converted into negative evidence or a fabricated likelihood.
     """
-    maf = _series(series, "maf")
-    load = _series(series, "engine_load")
-    o2 = _series(series, "o2_voltage")
-    stft = _series(series, "stft")
-    ltft = _series(series, "ltft")
-    misfire = _series(series, "misfire_count")
-    trims = stft or ltft
+    has_maf = _has(series, "maf")
+    has_load = _has(series, "engine_load")
+    has_o2 = _has(series, "o2_voltage")
+    has_trim = _has(series, "stft") or _has(series, "ltft")
+    has_misfire = _has(series, "misfire_count")
 
-    plaus = sensor_plausibility(maf, [], load, o2, trims)
+    trims = _series(series, "stft") or _series(series, "ltft")
+    likelihoods = {}
 
-    smooth = plaus.get("maf_smooth", False)
-    erratic = plaus.get("maf_erratic", False)
-    railed = plaus.get("o2_railed_low", False)
-    switches = plaus.get("o2_switching", False)
-    trim_rises = plaus.get("trim_rising_with_load", False)
-    trim_neg_high = plaus.get("trim_high_load_negative", False)
-    trim_slow = plaus.get("trim_climbs_gradually", False)
+    if has_maf and has_load and has_o2:
+        maf = _series(series, "maf")
+        load = _series(series, "engine_load")
+        o2 = _series(series, "o2_voltage")
+        plaus = sensor_plausibility(maf, [], load, o2, trims)
+        smooth = plaus.get("maf_smooth", False)
+        erratic = plaus.get("maf_erratic", False)
+        railed = plaus.get("o2_railed_low", False)
+        switches = plaus.get("o2_switching", False)
+        trim_rises = plaus.get("trim_rising_with_load", has_trim and False)
+        trim_neg_high = plaus.get("trim_high_load_negative", False)
+        trim_slow = plaus.get("trim_climbs_gradually", False)
 
-    # --- vacuum_leak: smooth MAF AND trims climb with load AND O2 not railed.
-    vac_score = 0.5
-    if smooth and trim_rises and not railed:
-        vac_score += 0.5                       # textbook leak signature
-    elif not trim_rises:
-        vac_score -= 0.35                      # a leak always drives load-linked trims
-    if railed:
-        vac_score -= 0.2                       # railed O2 argues against a leak
-    likelihoods_vac = max(0.05, min(1.0, vac_score))
+        if has_trim:
+            # vacuum_leak: smooth MAF AND trims climb with load AND O2 not railed.
+            vac_score = 0.5
+            if smooth and trim_rises and not railed:
+                vac_score += 0.5                       # textbook leak signature
+            elif not trim_rises:
+                vac_score -= 0.35                      # a leak always drives load-linked trims
+            if railed:
+                vac_score -= 0.2                       # railed O2 argues against a leak
+            likelihoods["vacuum_leak"] = max(0.05, min(1.0, vac_score))
 
-    # --- maf_fault: erratic MAF is the decisive signature.
-    maf_score = 0.5
-    maf_score += 0.45 if erratic else -0.3
-    likelihoods_maf = max(0.05, min(1.0, maf_score))
+            # weak_fuel_delivery: trims go negative at high load.
+            fuel_score = 0.5
+            fuel_score += 0.45 if trim_neg_high else 0.0
+            fuel_score += -0.15 if trim_rises else 0.0
+            likelihoods["weak_fuel_delivery"] = max(0.05, min(1.0, fuel_score))
 
-    # --- weak_fuel_delivery: trims go negative at high load.
-    fuel_score = 0.5
-    fuel_score += 0.45 if trim_neg_high else 0.0
-    fuel_score += -0.15 if trim_rises else 0.0
-    likelihoods_fuel = max(0.05, min(1.0, fuel_score))
+        # maf_fault: erratic MAF is the decisive signature (MAF already present).
+        maf_score = 0.5
+        maf_score += 0.45 if erratic else -0.3
+        likelihoods["maf_fault"] = max(0.05, min(1.0, maf_score))
 
-    # --- ignition_fault: misfires present but trims near normal.
-    misfiring = bool(misfire and max(misfire) > 0)
-    trim_mean = _mean(ltft or stft or [0.0])
-    ign_score = 0.5
-    if misfiring:
-        ign_score += 0.25
-        if abs(trim_mean) < 5:
-            ign_score += 0.2
+        # o2_sensor_fault: O2 railed/flatlined with no switching, healthy MAF.
+        o2_score = 0.5
+        o2_score += 0.45 if railed else 0.0
+        o2_score += -0.35 if switches else 0.0
+        o2_score += 0.15 if trim_slow else 0.0
+        if smooth and not trim_rises and has_trim:
+            o2_score += 0.15   # MAF healthy + trims not load-linked -> sensor, not condition
+        likelihoods["o2_sensor_fault"] = max(0.05, min(1.0, o2_score))
     else:
-        ign_score -= 0.2
-    likelihoods_ign = max(0.05, min(1.0, ign_score))
+        # No MAF/O2/load bundle -> none of the MAF/O2/leak hypotheses are computable.
+        pass
 
-    # --- o2_sensor_fault: O2 railed/flatlined with no switching, healthy MAF.
-    o2_score = 0.5
-    o2_score += 0.45 if railed else 0.0
-    o2_score += -0.35 if switches else 0.0
-    o2_score += 0.15 if trim_slow else 0.0
-    o2_score += 0.15 if smooth and not trim_rises else 0.0   # MAF healthy + trims not load-linked -> sensor, not condition
-    likelihoods_o2 = max(0.05, min(1.0, o2_score))
+    if has_misfire and has_trim:
+        misfire = _series(series, "misfire_count")
+        misfiring = bool(misfire and max(misfire) > 0)
+        trim_mean = _mean(_series(series, "ltft") or _series(series, "stft") or [0.0])
+        ign_score = 0.5
+        if misfiring:
+            ign_score += 0.25
+            if abs(trim_mean) < 5:
+                ign_score += 0.2
+        else:
+            ign_score -= 0.2
+        likelihoods["ignition_fault"] = max(0.05, min(1.0, ign_score))
 
-    return {
-        "vacuum_leak": round(min(1.0, likelihoods_vac), 4),
-        "maf_fault": round(likelihoods_maf, 4),
-        "weak_fuel_delivery": round(likelihoods_fuel, 4),
-        "ignition_fault": round(likelihoods_ign, 4),
-        "o2_sensor_fault": round(likelihoods_o2, 4),
-    }
+    return {k: round(min(1.0, v), 4) for k, v in likelihoods.items()}
 
 
 def diagnose(series, priors, available_tests=None):
@@ -411,23 +502,39 @@ def diagnose(series, priors, available_tests=None):
     }
 
     if available_tests:
+        # Explicit low -> high cost ordering for the low-cost preference rule.
+        COST_ORDER = {"low": 0, "medium": 1, "high": 2}
         gains = []
-        for t in available_tests:
-            expected_lik = t.get("expected_likelihood")
+        for idx, t in enumerate(available_tests):
+            expected_lik = canonicalize_likelihoods(t.get("expected_likelihood"))
             if not expected_lik:
                 continue
             gain = expected_information_gain(posterior, expected_lik)
             if gain is None:
                 continue
             gains.append({
+                "_idx": idx,
                 "test_id": t.get("test_id"),
                 "label": t.get("label"),
                 "cost": t.get("cost"),
                 "expected_gain_bits": round(gain, 4),
             })
+        # Rank by information gain, then prefer the cheapest test within 90% of
+        # the best gain (deterministic tie-break by original knowledge order).
+        best_gain = max((g["expected_gain_bits"] for g in gains), default=0.0)
+        best_candidates = [g for g in gains if g["expected_gain_bits"] >= 0.90 * best_gain]
+        best_candidates.sort(
+            key=lambda g: (COST_ORDER.get(g["cost"], 99), -g["expected_gain_bits"], g["_idx"])
+        )
         gains.sort(key=lambda g: g["expected_gain_bits"], reverse=True)
-        result["test_gains"] = gains
-        result["recommended_test"] = gains[0] if gains else None
+        result["test_gains"] = [
+            {k: v for k, v in g.items() if k not in ("_idx",)} for g in gains
+        ]
+        result["recommended_test"] = (
+            {k: v for k, v in best_candidates[0].items() if k not in ("_idx",)}
+            if best_candidates
+            else None
+        )
 
     return result
 
