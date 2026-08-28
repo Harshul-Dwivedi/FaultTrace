@@ -228,22 +228,23 @@ Same analysis code, applied breadth-first. Turns the single-machine tool into a 
 ```
 FaultTrace/
 ├── README.md
-├── SPEC.md
-├── PLAN.md
-├── IMPLEMENTATION.md
+├── AGENTS.md                        # agent-guidance (auto-loaded from root)
+├── docs/                            # project documentation
+│   ├── SPEC.md
+│   ├── PLAN.md
+│   ├── IMPLEMENTATION.md
+│   ├── PROGRESS.md
+│   └── UI_REQUIREMENTS.md
 ├── .env.example                     # names only, no values
 ├── mcp-server/                      # mock vehicle-service MCP server
-│   ├── tools/                       # get_dtcs, get_freeze_frame, get_sensor_log, ...
+│   ├── src/                         # tools.js, scenarioStore.js, http.js
 │   └── scenarios/                   # scenario_A/, scenario_B/, ... (+ ground truth, eval-only)
-├── agent/
-│   ├── orchestrator/                # controller prompt/flow, hypothesis enumeration
-│   ├── subagents/                   # per-hypothesis investigator
-│   └── ranking/                     # bayesian update, info-gain next-test
+├── agent/                           # faulttrace-investigator agent manifest
 ├── sandbox/
-│   └── analysis/                    # fft, cross_correlate, sensor_plausibility, anomaly
-├── ui/                              # theming / investigation view (if built)
+│   └── analysis/                    # analyze.py: fft, cross_correlate, plausibility, bayes
+├── fault-trace-ui/                  # investigation dashboard (Next.js)
 ├── eval/                            # per-scenario: does the agent reach ground-truth cause?
-└── trueforge.config.*               # model(s), MCP server, sandbox registration
+└── .github/workflows/ci.yml         # mcp test + eval + ui build
 ```
 
 Add a tiny **eval harness** early: for each scenario, assert the agent's top posterior matches the ground-truth cause. It catches regressions when you refactor to subagents on Day 3 and add scenarios on Day 4 — cheap insurance for a solo dev moving fast.
