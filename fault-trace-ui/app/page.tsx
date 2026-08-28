@@ -168,7 +168,7 @@ export default function Page() {
         const agentOutput = getAgentOutput(events)
         const vehicle = parseVehicleInfo(events)
         const evidence = parseEvidenceTimeline(events)
-        const hypotheses = parseHypotheses(agentOutput)
+        const hypotheses = parseHypotheses(agentOutput, evidence)
         const tests = parseInfoGain(agentOutput, evidence, hypotheses)
         const gates = parseGateLog(events)
         const cost = parseCost(turns)
