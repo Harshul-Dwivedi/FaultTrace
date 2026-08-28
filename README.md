@@ -170,7 +170,7 @@ added here.*
 
 ## Architecture
 
-See [SPEC.md](SPEC.md) for the full specification.
+See [docs/SPEC.md](docs/SPEC.md) for the full specification.
 
 ```mermaid
 flowchart TB
