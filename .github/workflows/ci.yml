@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python 3
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: MCP server tests
+        working-directory: mcp-server
+        run: |
+          npm ci
+          npm test
+
+      - name: Sandbox analysis eval
+        working-directory: .
+        run: node eval/run_eval.mjs
+
+      - name: Dashboard build
+        working-directory: fault-trace-ui
+        run: |
+          npm ci
+          npm run build

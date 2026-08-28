@@ -508,3 +508,45 @@ end-to-end:
   Fixed by keeping `run_analysis` the **single authoritative** source of the posterior + recommended
   test: subagents contribute supporting/contradictory *evidence* only and must not alter the
   recommended test. Live registry agent synced.
+
+---
+
+## 12. Post-merge E2E verification with `run_analysis` (Aug 27)
+
+### Issue discovered
+A live E2E run did NOT use `run_analysis` (PR #10 feature). Root cause: the running **MCP server
+process (node src/http.js on :9090) predated the PR #10 merge**, so Node's module cache was serving a
+stale tools.js without `run_analysis`. Verified live `tools/list` showed 11 tools, missing
+`run_analysis` and `get_vehicle_info`. **Restarting the server** (Stop-Process + fresh
+`node src/http.js`) exposed all PR #10 tools: `run_analysis`, `get_vehicle_info`, etc.
+
+### Model change
+`openrouter/stealth-ox-alpha` now returns **404** (retired by the provider; replaced by
+`z-ai/glm-5.3-flash`). Updated:
+- openrouter model-provider manifest: `stealth/ox-alpha` -> `z-ai/glm-5.3-flash` (model_id),
+  name `z-ai-glm-5.3-flash` (PUT preserves stored key when redacted value is sent).
+- agent manifest model: `openrouter/stealth-ox-alpha` -> `openrouter/z-ai-glm-5.3-flash`.
+
+### Full E2E run (session 01m1228aj7j472xk5ac9cqvz86, Scenario A)
+Drove the session over the REST API (create session -> POST turns -> approve gates):
+1. **`run_analysis` invoked** as a real MCP `call_tool` with `{"vin": "1HGCM82633A004352"}`.
+2. Computed differential (run_analysis posteriors): **vacuum leak #1 (47.1%)**, ignition 30.3%,
+   weak fuel 9.4%, MAF 6.7%, mechanical 3.4%, O2 3.0%.
+3. Subagents cross-checked (see below), ran as evidence-only per the round-2 fix.
+4. **Tier-2 gate**: proposed `request_measurement` smoke_test; first call auto-rejected needing a
+   `justification` field -> agent resubmitted with justification; approved. Smoke test returned
+   **`confirmed_leak` - cracked brake booster vacuum hose** (matches ground truth).
+5. Agent updated to "Root Cause PROVEN."
+6. **Tier-3 gate**: `order_part` proposed; first call used `part` -> bound by schema, agent
+   self-corrected to `part_id`; resubmitted and approved. Mock order placed (ETA 3 days).
+7. Post-order verification: agent **correctly withheld `clear_codes`** - part not yet installed,
+   trims still FAIL (>+20% load), misfire counter advanced, so clearing would erase live evidence.
+
+### Outcome
+E2E flow verified end-to-end with the merged `run_analysis` tool: real MCP invocation, computed
+Bayesian differential, subagent evidence, BOTH approval gates (Tier-2 measurement, Tier-3 action),
+and a safety-conscious hold on code clearing. Investigation resumable (awaiting part install).
+
+### Lesson / checklist note
+After merging MCP-tooling PRs, **restart the live MCP server** so the connected TrueForge agent
+actually sees the new tools; verify via `tools/list` before an E2E run.

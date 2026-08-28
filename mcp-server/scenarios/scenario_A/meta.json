@@ -2,8 +2,8 @@
   "scenario_id": "scenario_A",
   "vin": "1HGCM82633A004352",
   "vehicle": "2003 Honda Accord EX 2.4L I4",
-  "description": "Lean misfire under load. Unmetered air enters through a cracked brake-booster vacuum hose; ECU compensates with rising fuel trims until misfires appear.",
   "ground_truth_eval_only": {
+    "description": "Lean misfire under load. Unmetered air enters through a cracked brake-booster vacuum hose; ECU compensates with rising fuel trims until misfires appear.",
     "root_cause": "Vacuum leak (cracked brake booster hose)",
     "canonical_cause": "vacuum_leak",
     "expected_test_id": "smoke_test",

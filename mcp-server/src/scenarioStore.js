@@ -263,7 +263,11 @@ export class ScenarioStore {
     const dir = this.resolveScenario(vin);
     const meta = this.loadJson(join(dir, "meta.json"), null);
     if (!meta) return null;
-    const { ground_truth_eval_only, notes, ...safe } = meta;
+    const allowed = ["vin", "scenario_id", "vehicle"];
+    const safe = {};
+    for (const key of allowed) {
+      if (meta[key] !== undefined) safe[key] = meta[key];
+    }
     return safe;
   }
 }

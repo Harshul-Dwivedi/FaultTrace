@@ -165,7 +165,6 @@ export interface CostBreakdown {
     cost: number
   }>
   totalCost: number
-  model: string
 }
 
 export interface InvestigationData {

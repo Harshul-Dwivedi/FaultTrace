@@ -2,8 +2,8 @@
   "scenario_id": "scenario_B",
   "vin": "2T1BURHE0JC000001",
   "vehicle": "2005 Toyota Camry LE 2.4L I4",
-  "description": "MAF sensor contamination causing false lean readings. The hot-wire element is coated with oil/debris, under-reporting airflow by 25-35% with erratic spikes. ECU over-fuels to compensate, causing elevated trims and occasional misfires under load.",
   "ground_truth_eval_only": {
+    "description": "MAF sensor contamination causing false lean readings. The hot-wire element is coated with oil/debris, under-reporting airflow by 25-35% with erratic spikes. ECU over-fuels to compensate, causing elevated trims and occasional misfires under load.",
     "root_cause": "MAF sensor contamination (hot-wire element coated with oil/debris)",
     "canonical_cause": "maf_fault",
     "expected_test_id": "known_good_maf_swap",
