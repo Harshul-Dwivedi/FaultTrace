@@ -180,7 +180,7 @@ flowchart TB
         direction TB
         AG["Investigator Agent<br/>(faulttrace-investigator)"]
         SUB["Dynamic Subagents<br/>(per-hypothesis fan-out)"]
-        SBX["Sandbox<br/>(deterministic analysis code)"]
+        SBX["Harness sandbox<br/>(optional agent-generated checks)"]
         RANK["Bayesian ranking<br/>prior × likelihood → posterior"]
         SES["Persistent session"]
     end
@@ -200,21 +200,24 @@ flowchart TB
     AG --> SES
     AG -- "0. hypothesis fan-out" --> SUB
     SUB -- "evidence (supporting / contradictory)" --> AG
-    AG --> RA --> RBX["compute likelihoods"]
-    RBX --> SBX
-    SUB --> SBX
-    RA --> RANK --> AG
-    AG -- "1. propose physical action" --> G2
-    AG --> G3
-    G2 -- "2. PAUSE for approval" --> AP
-    G3 -- "2. PAUSE for approval" --> AP
-    AP["Human approval gate<br/>(approved_by_human)"] -- "3. approve / reject" --> G2
-    AP --> G3
+    AG -- "1. run analysis" --> RA
+    RA --> FIXED["fixed analyze.py (server-side, deterministic)"]
+    FIXED --> RANK["Bayesian ranking<br/>prior × likelihood → posterior"]
+    RANK --> AG
+    SUB -- "2. optional custom checks" --> SBX["Harness sandbox<br/>(agent-generated code)"]
+    AG -- "2. propose physical action" --> AP["Human approval gate"]
+    AP -- "approved → invoke" --> G2["request_measurement — Tier 2"]
+    AP -- "approved → invoke" --> G3["clear_codes · order_part — Tier 3"]
+    AP -- "rejected → cancel" --> XL["no tool call"]
 ```
 
-**The three eligibility proofs, in order:** a *real MCP tool call* (evidence retrieval + `run_analysis`),
-generated *code running in the sandbox* (deterministic signal analysis), and a *pause for a human*
-before any Tier-2 / Tier-3 physical action.
+
+**The eligibility proofs, in order:** a *real MCP tool call* (evidence retrieval + `run_analysis`),
+a *pause for a human* before any Tier-2 / Tier-3 physical action, and *real computed analysis*.
+The deterministic signal processing and Bayesian ranking run in the server-side
+`sandbox/analysis/analyze.py` (invoked by `run_analysis`), so the math is reproducible and
+testable — it is not text the model invented. Subagents may additionally generate and run custom
+checks in the harness sandbox for hypotheses the fixed analysis doesn't cover.
 
 ## Quickstart
 
