@@ -172,15 +172,49 @@ added here.*
 
 See [SPEC.md](SPEC.md) for the full specification.
 
+```mermaid
+flowchart TB
+    U["User / Technician"] --> AG
+
+    subgraph TF["TrueForge Harness"]
+        direction TB
+        AG["Investigator Agent<br/>(faulttrace-investigator)"]
+        SUB["Dynamic Subagents<br/>(per-hypothesis fan-out)"]
+        SBX["Sandbox<br/>(deterministic analysis code)"]
+        RANK["Bayesian ranking<br/>prior × likelihood → posterior"]
+        SES["Persistent session"]
+    end
+
+    subgraph MCP["faulttrace-vehicle MCP server"]
+        R1["get_dtcs · get_freeze_frame"]
+        R2["get_sensor_log · get_compact_telemetry"]
+        R3["lookup_dtc_knowledge · get_vehicle_info"]
+        RA["run_analysis"]
+        G2["request_measurement — Tier 2"]
+        G3["clear_codes · order_part — Tier 3"]
+    end
+
+    AG --> R1
+    AG --> R2
+    AG --> R3
+    AG --> SES
+    AG -- "0. hypothesis fan-out" --> SUB
+    SUB -- "evidence (supporting / contradictory)" --> AG
+    AG --> RA --> RBX["compute likelihoods"]
+    RBX --> SBX
+    SUB --> SBX
+    RA --> RANK --> AG
+    AG -- "1. propose physical action" --> G2
+    AG --> G3
+    G2 -- "2. PAUSE for approval" --> AP
+    G3 -- "2. PAUSE for approval" --> AP
+    AP["Human approval gate<br/>(approved_by_human)"] -- "3. approve / reject" --> G2
+    AP --> G3
 ```
-User / Technician → TrueForge core server → Orchestrator Agent
-    ├─ Evidence tools (MCP: dtcs, freeze-frame, sensor logs, history, knowledge,
-    │                   vehicle-info, compact-telemetry)
-    ├─ Dynamic subagent delegation (per-hypothesis fan-out)
-    │   └─ Each subagent: sandbox analysis (correlation, plausibility, anomaly)
-    ├─ Bayesian ranking (prior × likelihood → posterior, info-gain test selection)
-    └─ Gated action tools (Tier 2: measurements / Tier 3: clear codes, order part)
-```
+
+**The three eligibility proofs, in order:** a *real MCP tool call* (evidence retrieval + `run_analysis`),
+generated *code running in the sandbox* (deterministic signal analysis), and a *pause for a human*
+before any Tier-2 / Tier-3 physical action.
 
 ## Quickstart
 
