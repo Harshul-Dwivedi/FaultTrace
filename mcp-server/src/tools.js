@@ -108,7 +108,7 @@ export function registerTools(server, store) {
     {
       title: "Get vehicle information",
       description:
-        "Read vehicle metadata: make, model, year, engine specs, displacement, and scenario description. Use this to get vehicle-specific parameters (e.g. engine displacement) needed for derived-airflow and MAF-plausibility calculations. Read-only, safe.",
+        "Read vehicle metadata: make, model, year, engine specs, and displacement. Use this to get vehicle-specific parameters (e.g. engine displacement) needed for derived-airflow and MAF-plausibility calculations. Read-only, safe.",
       inputSchema: { vin: VinSchema },
     },
     async ({ vin }) => jsonResult(store.getVehicleInfo(vin))

@@ -46,9 +46,6 @@ export function CostTracker({ cost }: { cost: CostBreakdown | null }) {
             </tr>
           </tbody>
         </table>
-        <div style={{ marginTop: 8, fontSize: 10, color: '#718590' }}>
-          Model: {cost.model}
-        </div>
       </div>
     </section>
   )

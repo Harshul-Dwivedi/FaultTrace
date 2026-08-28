@@ -18,6 +18,5 @@ export function parseCost(turns: TFTurn[]): CostBreakdown {
   return {
     turns: turnData,
     totalCost,
-    model: 'openrouter/stealth/ox-alpha',
   }
 }

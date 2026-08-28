@@ -11,15 +11,20 @@
  * Usage:  node eval/run_eval.mjs
  * Exit code 0 if every scenario passes, 1 otherwise.
  */
-import { readFileSync, readdirSync, existsSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { ScenarioStore } from "../mcp-server/src/scenarioStore.js";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SCEN_DIR = join(ROOT, "mcp-server", "scenarios");
 const ANALYZE = join(ROOT, "sandbox", "analysis", "analyze.py");
+
+// Single source of the analysis bundle: identical to what the run_analysis
+// production tool feeds analyze.py (ScenarioStore.getAnalysisBundle()).
+const STORE = new ScenarioStore(SCEN_DIR);
 
 // Canonical cause families (mirrors analyze.py's CAUSE_ALIASES) used to map a
 // fine-grained posterior cause onto the family the scenario ground truth names.
@@ -70,48 +75,18 @@ function listScenarios() {
     .sort();
 }
 
-function buildTelemetry(scenario) {
-  const sensorsDir = join(SCEN_DIR, scenario, "sensors");
-  const series = {};
-  for (const f of readdirSync(sensorsDir)) {
-    if (!f.endsWith(".json")) continue;
-    const pid = f.slice(0, -5);
-    const d = readJson(join(sensorsDir, f));
-    series[pid] = {
-      pid,
-      unit: d.unit ?? null,
-      value: Array.isArray(d.value) ? d.value : [],
-    };
-  }
-  return { vin: null, sample_period_seconds: null, series };
-}
-
-function buildPriors(scenario) {
-  const kdir = join(SCEN_DIR, scenario, "knowledge");
-  const prior = {};
-  for (const f of readdirSync(kdir)) {
-    if (!f.endsWith(".json")) continue;
-    const k = readJson(join(kdir, f));
-    for (const c of k.common_causes ?? []) {
-      if (c && c.cause) prior[c.cause] = Math.max(prior[c.cause] ?? 0, c.prior ?? 0);
-    }
-  }
-  const tot = Object.values(prior).reduce((a, b) => a + b, 0);
-  if (tot <= 0) return prior;
-  const norm = {};
-  for (const [k, v] of Object.entries(prior)) norm[k] = v / tot;
-  return norm;
-}
-
-function buildTests(scenario) {
-  const kdir = join(SCEN_DIR, scenario, "knowledge");
-  const tests = [];
-  for (const f of readdirSync(kdir)) {
-    if (!f.endsWith(".json")) continue;
-    const k = readJson(join(kdir, f));
-    for (const t of k.available_tests ?? []) tests.push(t);
-  }
-  return tests;
+// Build the analysis bundle via the production ScenarioStore so the eval
+// exercises exactly what run_analysis feeds analyze.py (merged priors,
+// first-wins-deduped tests, full-resolution telemetry) - no duplicated logic.
+function getBundle(scenario) {
+  const meta = readJson(join(SCEN_DIR, scenario, "meta.json"));
+  const vin = meta.vin;
+  const bundle = STORE.getAnalysisBundle(vin);
+  return {
+    telemetry: bundle.telemetry,
+    priors: bundle.priors,
+    tests: bundle.tests,
+  };
 }
 
 function runAnalyze(telemetry, priors, tests) {
@@ -171,9 +146,7 @@ function assertScenario(scenario) {
   const ground = meta.ground_truth_eval_only?.root_cause ?? "(none)";
   const expected = meta.ground_truth_eval_only?.canonical_cause ?? null;
   const expectedTest = meta.ground_truth_eval_only?.expected_test_id ?? null;
-  const telemetry = buildTelemetry(scenario);
-  const priors = buildPriors(scenario);
-  const tests = buildTests(scenario);
+  const { telemetry, priors, tests } = getBundle(scenario);
 
   const result = runAnalyze(telemetry, priors, tests);
   const ranked = result.ranked ?? [];

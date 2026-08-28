@@ -154,16 +154,30 @@ await assertAnalysis(VIN, ["vacuum_leak", "smoke_test"]);
 await assertAnalysis(VIN_B, ["maf_fault", "known_good_maf_swap"]);
 await assertAnalysis(VIN_C, ["o2_sensor_fault", "known_good_o2_swap"]);
 
-// get_vehicle_info must not leak ground truth
-const infoA = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN } }));
-ok(infoA.vehicle, "vehicle info must include vehicle description");
-ok(infoA.vehicle.includes("2.4"), "vehicle info must contain displacement");
-strictEqual(infoA.ground_truth_eval_only, undefined, "ground truth must not be exposed");
-strictEqual(infoA.notes, undefined, "notes must not be exposed");
-
-const infoB = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN_B } }));
-ok(infoB.vehicle, "scenario B vehicle info must include vehicle description");
-strictEqual(infoB.ground_truth_eval_only, undefined, "scenario B ground truth must not be exposed");
+// get_vehicle_info must not leak ground truth (allow-list: vin, scenario_id, vehicle)
+const ALLOWED_INFO_KEYS = ["vin", "scenario_id", "vehicle"];
+const LEAK_PHRASES = [
+  "cracked brake-booster",
+  "brake-booster vacuum hose",
+  "MAF sensor contamination",
+  "hot-wire element",
+  "stuck railed lean",
+  "unmetered air",
+  "root_cause",
+  "ground_truth_eval_only",
+  "notes",
+];
+for (const v of [VIN, VIN_B, VIN_C]) {
+  const info = text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: v } }));
+  ok(info.vehicle, `vehicle info must include vehicle description for ${v}`);
+  const leakedKeys = Object.keys(info).filter((k) => !ALLOWED_INFO_KEYS.includes(k));
+  strictEqual(leakedKeys.length, 0, `get_vehicle_info must allow-list keys only (${v}): ${leakedKeys.join(", ")}`);
+  const blob = JSON.stringify(info).toLowerCase();
+  for (const phrase of LEAK_PHRASES) {
+    ok(!blob.includes(phrase.toLowerCase()), `get_vehicle_info must not leak '${phrase}' (${v})`);
+  }
+}
+ok((text(await client.callTool({ name: "get_vehicle_info", arguments: { vin: VIN } }))).vehicle.includes("2.4"), "vehicle info must contain displacement");
 
 const refused = await client.callTool({
   name: "request_measurement",
