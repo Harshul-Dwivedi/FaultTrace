@@ -1,4 +1,4 @@
-import type { Hypothesis } from '../types'
+import type { Hypothesis, EvidenceItem } from '../types'
 
 function confidenceFromPosterior(p: number): 'HIGH' | 'MEDIUM' | 'LOW' {
   if (p >= 60) return 'HIGH'
@@ -6,7 +6,31 @@ function confidenceFromPosterior(p: number): 'HIGH' | 'MEDIUM' | 'LOW' {
   return 'LOW'
 }
 
-export function parseHypotheses(modelOutput: string): Hypothesis[] {
+// Cause keys from run_analysis / lookup_dtc_knowledge whose labels we can
+// prettify. Anything unknown falls back to the raw key with underscores split.
+const CAUSE_LABELS: Record<string, string> = {
+  vacuum_leak: 'Vacuum leak',
+  maf_fault: 'MAF sensor fault',
+  weak_fuel_delivery: 'Weak fuel delivery',
+  ignition_fault: 'Ignition fault',
+  o2_sensor_fault: 'O2 sensor fault',
+  maf_contamination: 'MAF contamination',
+  maf_electrical_fault: 'MAF electrical fault',
+  maf_ground_fault: 'MAF ground fault',
+  air_intake_restrict: 'Air intake restriction',
+  ecu_fault: 'ECU fault',
+  o2_sensor_contamination: 'O2 contamination',
+  o2_sensor_aging: 'O2 sensor aging',
+  o2_heater_fault: 'O2 heater fault',
+  exhaust_leak: 'Exhaust leak',
+  wiring_fault: 'Wiring fault',
+}
+
+function causeLabel(key: string): string {
+  return CAUSE_LABELS[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export function parseHypotheses(modelOutput: string, evidenceItems: EvidenceItem[] = []): Hypothesis[] {
   const hypotheses: Hypothesis[] = []
   const lines = modelOutput.split('\n')
 
@@ -72,6 +96,51 @@ export function parseHypotheses(modelOutput: string): Hypothesis[] {
           contradictory: [],
         })
       }
+    }
+  }
+
+  // Pattern 3 (guaranteed fallback): if the LLM's prose didn't match the
+  // table/list formats above, use the structured `run_analysis` output. That
+  // tool always returns the real ranked Bayesian posterior, so the panel is
+  // never empty even when the model writes its reasoning as free-form prose.
+  if (hypotheses.length === 0) {
+    // `run_analysis` returns both the ranked posterior AND the authoritative
+    // merged, normalized priors it actually used (same response). Events are
+    // ordered oldest → newest, so each later run_analysis overwrites the
+    // previous one and the LAST call wins — no stale posteriors.
+    let ranked: Array<{ cause?: string; posterior?: number }> = []
+    let mergedPriors: Record<string, number> = {}
+
+    for (const item of evidenceItems) {
+      if (item.toolName !== 'run_analysis') continue
+      let out = item.output
+      if (typeof out === 'string') {
+        try { out = JSON.parse(out) } catch { continue }
+      }
+      const o = out as Record<string, unknown> | null
+      const arr = o?.ranked
+      if (!Array.isArray(arr)) continue
+      ranked = arr as Array<{ cause?: string; posterior?: number }>
+      const priors = o?.priors
+      if (priors && typeof priors === 'object') {
+        mergedPriors = priors as Record<string, number>
+      }
+    }
+
+    for (const r of ranked) {
+      if (r?.posterior == null || isNaN(r.posterior) || r.posterior <= 0) continue
+      const name = causeLabel(r.cause ?? 'unknown')
+      const post = Math.round(r.posterior * 1000) / 10
+      hypotheses.push({
+        rank: '00',
+        name,
+        prior: typeof mergedPriors[r.cause ?? ''] === 'number' ? mergedPriors[r.cause ?? ''] : 0,
+        posterior: post,
+        bayesFactor: 0,
+        confidence: confidenceFromPosterior(post),
+        supporting: [],
+        contradictory: [],
+      })
     }
   }
 

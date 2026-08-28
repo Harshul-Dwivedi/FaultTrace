@@ -211,7 +211,16 @@ export function parseInfoGain(
     }
   }
 
-  return tests
+  // Dedupe by testId (a test can appear in more than one DTC's knowledge base,
+  // e.g. P0171 + P0300 both list smoke_test). Keep the highest-gain entry so
+  // each unique test renders once with a stable React key.
+  const byId = new Map<string, TestRecommendation>()
+  for (const t of tests) {
+    const prev = byId.get(t.testId)
+    if (!prev || t.gain > prev.gain) byId.set(t.testId, t)
+  }
+
+  return Array.from(byId.values())
     .sort((a, b) => b.gain - a.gain)
     .map((t, i) => ({ ...t, rank: i + 1 }))
 }
