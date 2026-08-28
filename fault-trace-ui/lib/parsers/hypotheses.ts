@@ -104,38 +104,28 @@ export function parseHypotheses(modelOutput: string, evidenceItems: EvidenceItem
   // tool always returns the real ranked Bayesian posterior, so the panel is
   // never empty even when the model writes its reasoning as free-form prose.
   if (hypotheses.length === 0) {
-    // Collect priors from lookup_dtc_knowledge so "Prior → Posterior" is real.
-    const priorsByCause: Record<string, number> = {}
+    // `run_analysis` returns both the ranked posterior AND the authoritative
+    // merged, normalized priors it actually used (same response). Events are
+    // ordered oldest → newest, so each later run_analysis overwrites the
+    // previous one and the LAST call wins — no stale posteriors.
+    let ranked: Array<{ cause?: string; posterior?: number }> = []
+    let mergedPriors: Record<string, number> = {}
+
     for (const item of evidenceItems) {
-      if (item.toolName !== 'lookup_dtc_knowledge') continue
+      if (item.toolName !== 'run_analysis') continue
       let out = item.output
       if (typeof out === 'string') {
         try { out = JSON.parse(out) } catch { continue }
       }
-      const kb = out as Record<string, unknown> | null
-      const causes = kb?.common_causes
-      if (Array.isArray(causes)) {
-        for (const c of causes as Array<{ cause?: string; prior?: number }>) {
-          if (c?.cause != null && typeof c.prior === 'number') {
-            priorsByCause[c.cause] = c.prior
-          }
-        }
+      const o = out as Record<string, unknown> | null
+      const arr = o?.ranked
+      if (!Array.isArray(arr)) continue
+      ranked = arr as Array<{ cause?: string; posterior?: number }>
+      const priors = o?.priors
+      if (priors && typeof priors === 'object') {
+        mergedPriors = priors as Record<string, number>
       }
     }
-
-    const ranked = (() => {
-      for (const item of evidenceItems) {
-        if (item.toolName !== 'run_analysis') continue
-        let out = item.output
-        if (typeof out === 'string') {
-          try { out = JSON.parse(out) } catch { continue }
-        }
-        const o = out as Record<string, unknown> | null
-        const arr = o?.ranked
-        if (Array.isArray(arr)) return arr as Array<{ cause?: string; posterior?: number }>
-      }
-      return []
-    })()
 
     for (const r of ranked) {
       if (r?.posterior == null || isNaN(r.posterior) || r.posterior <= 0) continue
@@ -144,7 +134,7 @@ export function parseHypotheses(modelOutput: string, evidenceItems: EvidenceItem
       hypotheses.push({
         rank: '00',
         name,
-        prior: priorsByCause[r.cause ?? ''] ?? 0,
+        prior: typeof mergedPriors[r.cause ?? ''] === 'number' ? mergedPriors[r.cause ?? ''] : 0,
         posterior: post,
         bayesFactor: 0,
         confidence: confidenceFromPosterior(post),
