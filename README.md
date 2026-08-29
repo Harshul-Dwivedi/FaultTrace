@@ -158,15 +158,24 @@ MCP server independently refuses unapproved calls as defense-in-depth.
 
 ## Demo
 
-[▶ Watch the 3-minute FaultTrace demo](VIDEO_URL)
+[▶ Watch the 3-minute FaultTrace demo](https://drive.google.com/file/d/1fFy3QE3RxLscsi1MSokK8tBNNNGpMdye/view?usp=sharing)
 
 The video demonstrates: DTC event → MCP evidence retrieval → subagent investigation → competing
 hypotheses → sandbox analysis → evidence-based hypothesis evaluation → missing-evidence identification
 → human approval gate → new evidence → investigation continuation → final forensic conclusion. TrueForge
 is visibly central throughout.
 
-*Screenshots of the running investigation UI (timeline, evidence/hypotheses, and approval gate) are
-added here.*
+![Initial prompt and tool calls](docs/screenshots/initial-prompt-tool-calls.png)
+*The agent opens the investigation: raw prompt plus the first MCP evidence-retrieval tool calls.*
+
+![Hypothesis priors](docs/screenshots/hypothesis-priors.png)
+*Stored knowledge supplies the prior probabilities for each competing root-cause hypothesis.*
+
+![Smoke test and sub-agent fan-out](docs/screenshots/smoke-test-subagents.png)
+*The Tier-2 smoke test result lands, and the harness spawns per-hypothesis sub-agents.*
+
+![Order part approval](docs/screenshots/order-part-approval.png)
+*A Tier-3 part order is gated behind explicit human approval in the harness UI.*
 
 ## Architecture
 
